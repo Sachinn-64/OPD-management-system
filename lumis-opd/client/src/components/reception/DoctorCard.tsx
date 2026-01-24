@@ -8,7 +8,12 @@ interface DoctorCardProps {
 }
 
 export const DoctorCard: React.FC<DoctorCardProps> = ({ doctor, todayAppointments, onClick }) => {
+  console.log('DoctorCard - doctor:', doctor.id, doctor.firstName, doctor.lastName);
+  console.log('DoctorCard - todayAppointments:', todayAppointments);
+  console.log('DoctorCard - appointment doctorIds:', todayAppointments.map(a => a.doctorId));
+  
   const doctorAppointments = todayAppointments.filter(apt => apt.doctorId === doctor.id);
+  console.log('DoctorCard - filtered appointments for this doctor:', doctorAppointments.length);
   
   const stats = {
     total: doctorAppointments.length,

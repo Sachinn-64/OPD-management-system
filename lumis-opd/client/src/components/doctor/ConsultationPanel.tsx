@@ -456,21 +456,30 @@ export const ConsultationPanel: React.FC = () => {
 
   // Start consultation
   const handleStartConsultation = () => {
-    if (currentVisit?.id) {
+    // Use opdVisit.id if available, otherwise fall back to appointment id
+    const visitId = currentVisit?.opdVisit?.id || currentVisit?.id;
+    console.log('Starting consultation, visitId:', visitId);
+    
+    if (visitId) {
       updateStatusMutation.mutate({
-        visitId: currentVisit.id,
+        visitId,
         status: 'IN_PROGRESS',
       });
+    } else {
+      console.error('No visit ID available to start consultation');
     }
   };
 
   // Complete consultation
   const handleCompleteConsultation = async () => {
-    if (!currentVisit?.id || !currentPatient || !currentVisit.opdVisit?.id) return;
+    const visitId = currentVisit?.opdVisit?.id;
+    if (!visitId || !currentPatient) {
+      console.error('Cannot complete consultation - missing visitId or patient');
+      return;
+    }
 
     setIsCompleting(true);
     try {
-      const visitId = currentVisit.opdVisit.id;
       const patientId = currentPatient.id;
 
       // Save clinical notes (chief complaint as history, examination as note)
@@ -561,7 +570,7 @@ export const ConsultationPanel: React.FC = () => {
 
       // Save advice to OpdVisit
       if (adviceData.generalAdvice || adviceData.dietaryAdvice || adviceData.activityAdvice || diagnosisData.followUp) {
-        await consultationService.updateVisitAdvice(currentVisit.id, {
+        await consultationService.updateVisitAdvice(visitId, {
           generalAdvice: adviceData.generalAdvice,
           dietaryAdvice: adviceData.dietaryAdvice,
           activityAdvice: adviceData.activityAdvice,
@@ -571,7 +580,7 @@ export const ConsultationPanel: React.FC = () => {
 
       // Mark visit as completed in backend
       await updateStatusMutation.mutateAsync({
-        visitId: currentVisit.id,
+        visitId: visitId,
         status: 'COMPLETED',
       });
 
@@ -590,34 +599,149 @@ export const ConsultationPanel: React.FC = () => {
       // Show PDF download modal after successful completion
       setIsCompleting(false);
       setShowPdfModal(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error completing consultation:', error);
+      console.error('Error details:', error?.message, error?.code);
+      console.error('Visit ID used:', visitId);
+      console.error('Current visit:', currentVisit);
       setIsCompleting(false);
-      alert('Failed to complete consultation. Please try again.');
+      alert(`Failed to complete consultation: ${error?.message || 'Unknown error'}. Please try again.`);
     }
   };
 
-  // Generate PDF report
+  // Generate PDF report (client-side with jsPDF)
   const generateConsultationPDF = async () => {
-    if (!currentVisit?.opdVisit?.id) return;
+    if (!currentVisit?.opdVisit?.id || !currentPatient) return;
     setIsDownloadingPdf(true);
+    
     try {
-      const response = await consultationService.generatePDF(currentVisit.opdVisit.id);
-
-      // Create a blob from the response
-      const blob = new Blob([response], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-
-      // Create a temporary link and trigger download
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `consultation_${currentPatient?.uhid}_${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      // Clean up the URL
-      window.URL.revokeObjectURL(url);
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 15;
+      let yPos = 20;
+      
+      // Helper function for centered text
+      const centerText = (text: string, y: number, fontSize: number = 12) => {
+        doc.setFontSize(fontSize);
+        const textWidth = doc.getTextWidth(text);
+        doc.text(text, (pageWidth - textWidth) / 2, y);
+      };
+      
+      // Helper to add section
+      const addSection = (title: string, content: string | string[]) => {
+        if (!content || (Array.isArray(content) && content.length === 0)) return;
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text(title, margin, yPos);
+        yPos += 6;
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        
+        const textContent = Array.isArray(content) ? content.join('\n') : content;
+        const lines = doc.splitTextToSize(textContent, pageWidth - 2 * margin);
+        doc.text(lines, margin, yPos);
+        yPos += lines.length * 5 + 8;
+      };
+      
+      // Header
+      doc.setFont('helvetica', 'bold');
+      centerText('LUMIS HEALTHCARE', yPos, 16);
+      yPos += 8;
+      doc.setFont('helvetica', 'normal');
+      centerText('Consultation Report', yPos, 12);
+      yPos += 10;
+      
+      // Line
+      doc.setDrawColor(0, 150, 100);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 10;
+      
+      // Patient Info
+      doc.setFontSize(10);
+      doc.text(`Patient: ${currentPatient.firstName} ${currentPatient.lastName}`, margin, yPos);
+      doc.text(`UHID: ${currentPatient.uhid || 'N/A'}`, pageWidth / 2, yPos);
+      yPos += 6;
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPos);
+      doc.text(`Age/Gender: ${currentPatient.age || 'N/A'} / ${currentPatient.gender || 'N/A'}`, pageWidth / 2, yPos);
+      yPos += 10;
+      
+      // Chief Complaint
+      if (notesData.chiefComplaint) {
+        addSection('Chief Complaint:', notesData.chiefComplaint);
+      }
+      
+      // Examination
+      if (notesData.examination) {
+        addSection('Examination:', notesData.examination);
+      }
+      
+      // Vitals
+      const visit = currentVisit.opdVisit;
+      if (visit?.vitals && visit.vitals.length > 0) {
+        const vitals = visit.vitals[0];
+        const vitalsText = [
+          vitals.bloodPressure ? `BP: ${vitals.bloodPressure}` : '',
+          vitals.pulse ? `Pulse: ${vitals.pulse} bpm` : '',
+          vitals.temperature ? `Temp: ${vitals.temperature}°F` : '',
+          vitals.weight ? `Weight: ${vitals.weight} kg` : '',
+          vitals.spo2 ? `SpO2: ${vitals.spo2}%` : '',
+        ].filter(Boolean).join(', ');
+        
+        if (vitalsText) {
+          addSection('Vitals:', vitalsText);
+        }
+      }
+      
+      // Diagnosis
+      if (diagnosisData.diagnoses && diagnosisData.diagnoses.length > 0) {
+        const diagnosisText = diagnosisData.diagnoses.map(d => 
+          `${d.name}${d.icdCode ? ` (${d.icdCode})` : ''} - ${d.type}`
+        );
+        addSection('Diagnosis:', diagnosisText);
+      }
+      
+      // Assessment
+      if (diagnosisData.assessment) {
+        addSection('Assessment:', diagnosisData.assessment);
+      }
+      
+      // Prescription
+      if (prescriptionData && prescriptionData.length > 0) {
+        const rxText = prescriptionData.filter(p => p.drugName).map((p, i) => 
+          `${i + 1}. ${p.drugName} - ${p.dosage || ''} - ${p.frequency} - ${p.durationDays} days${p.instructions ? ` (${p.instructions})` : ''}`
+        );
+        addSection('Prescription:', rxText);
+      }
+      
+      // Advice
+      const adviceItems = [
+        adviceData.generalAdvice ? `General: ${adviceData.generalAdvice}` : '',
+        adviceData.dietaryAdvice ? `Diet: ${adviceData.dietaryAdvice}` : '',
+        adviceData.activityAdvice ? `Activity: ${adviceData.activityAdvice}` : '',
+      ].filter(Boolean);
+      
+      if (adviceItems.length > 0) {
+        addSection('Advice:', adviceItems);
+      }
+      
+      // Follow-up
+      if (diagnosisData.followUp) {
+        addSection('Follow-up:', diagnosisData.followUp);
+      }
+      
+      // Footer
+      yPos = doc.internal.pageSize.getHeight() - 30;
+      doc.setDrawColor(0, 150, 100);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 8;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      centerText('This is a computer-generated document', yPos, 9);
+      
+      // Save PDF
+      doc.save(`consultation_${currentPatient.uhid || 'patient'}_${new Date().toISOString().split('T')[0]}.pdf`);
       setIsDownloadingPdf(false);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -863,7 +987,7 @@ export const ConsultationPanel: React.FC = () => {
       const patientId = currentPatient.id;
 
       // Update advice fields (these can be directly updated)
-      await consultationService.updateVisitAdvice(currentVisit.id, {
+      await consultationService.updateVisitAdvice(visitId, {
         generalAdvice: adviceData.generalAdvice,
         dietaryAdvice: adviceData.dietaryAdvice,
         activityAdvice: adviceData.activityAdvice,

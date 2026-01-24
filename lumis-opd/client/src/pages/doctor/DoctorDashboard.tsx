@@ -32,23 +32,46 @@ export const DoctorDashboard: React.FC = () => {
   const [activeView, setActiveView] = useState<'consultation' | 'history'>('consultation');
 
   // Fetch doctor profile first to get doctorId
-  const { data: doctorProfile } = useQuery({
+  const { data: doctorProfile, isLoading: isLoadingProfile, error: profileError } = useQuery({
     queryKey: ['doctorProfile', user?.id],
-    queryFn: () => doctorService.getByUserId(user?.id || ''),
+    queryFn: async () => {
+      console.log('Fetching doctor profile for user:', user?.id);
+      const result = await doctorService.getByUserId(user?.id || '');
+      console.log('Doctor profile result:', result);
+      return result;
+    },
     enabled: !!user?.id,
     staleTime: 0,
     refetchOnMount: 'always',
   });
 
   // Fetch today's queue using doctorId from profile
-  const { data: queueData, refetch: refetchQueue } = useQuery({
+  const { data: queueData, refetch: refetchQueue, isLoading: isLoadingQueue, error: queueError } = useQuery({
     queryKey: ['todayQueue', doctorProfile?.id],
-    queryFn: () => appointmentService.getTodayQueue(doctorProfile?.id || ''),
+    queryFn: async () => {
+      console.log('Fetching queue for doctor:', doctorProfile?.id);
+      const result = await appointmentService.getTodayQueue(doctorProfile?.id || '');
+      console.log('Queue result:', result);
+      return result;
+    },
     enabled: !!doctorProfile?.id,
     refetchInterval: 60000, 
     staleTime: 0,
     refetchOnMount: 'always',
   });
+
+  // Debug logging
+  useEffect(() => {
+    console.log('=== Doctor Dashboard Debug ===');
+    console.log('User:', user);
+    console.log('Doctor Profile:', doctorProfile);
+    console.log('Profile Loading:', isLoadingProfile);
+    console.log('Profile Error:', profileError);
+    console.log('Queue Data:', queueData);
+    console.log('Queue Loading:', isLoadingQueue);
+    console.log('Queue Error:', queueError);
+    console.log('Current Visit:', currentVisit);
+  }, [user, doctorProfile, isLoadingProfile, profileError, queueData, isLoadingQueue, queueError, currentVisit]);
 
   // Set queue data
   useEffect(() => {

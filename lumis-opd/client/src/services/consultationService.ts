@@ -67,8 +67,16 @@ class ConsultationService {
 
   // Update visit
   async update(visitId: string, data: Partial<Visit>): Promise<void> {
+    // Clean data - remove undefined values that Firestore doesn't accept
+    const cleanedData: Record<string, any> = {};
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined) {
+        cleanedData[key] = value;
+      }
+    });
+    
     return getService().update(visitId, {
-        ...data,
+        ...cleanedData,
         updatedAt: new Date()
     } as any);
   }
@@ -334,7 +342,18 @@ class ConsultationService {
       chiefComplaint?: string;
     }
   ): Promise<void> {
-    return this.update(visitId, advice);
+    // Filter out undefined values - Firestore doesn't accept undefined
+    const cleanedAdvice: Record<string, string> = {};
+    Object.entries(advice).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        cleanedAdvice[key] = value;
+      }
+    });
+    
+    // Only update if there's something to update
+    if (Object.keys(cleanedAdvice).length > 0) {
+      return this.update(visitId, cleanedAdvice as any);
+    }
   }
 
   // Update advice (alias)
@@ -348,7 +367,18 @@ class ConsultationService {
       followUpDate?: string;
     }
   ): Promise<void> {
-    return this.update(visitId, advice);
+    // Filter out undefined values - Firestore doesn't accept undefined
+    const cleanedAdvice: Record<string, string> = {};
+    Object.entries(advice).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        cleanedAdvice[key] = value;
+      }
+    });
+    
+    // Only update if there's something to update
+    if (Object.keys(cleanedAdvice).length > 0) {
+      return this.update(visitId, cleanedAdvice as any);
+    }
   }
 
   // ============== COMPLETION METHODS ==============

@@ -97,8 +97,16 @@ export class FirestoreService<T extends { id?: string }> {
 
   // Update a document
   async update(id: string, data: Partial<T>): Promise<void> {
+    // Clean data - remove undefined values that Firestore doesn't accept
+    const cleanedData: Record<string, any> = {};
+    Object.entries(data as Record<string, any>).forEach(([key, value]) => {
+      if (value !== undefined) {
+        cleanedData[key] = value;
+      }
+    });
+    
     await updateDoc(this.getDocRef(id), {
-      ...data,
+      ...cleanedData,
       updatedAt: Timestamp.now(),
     });
   }

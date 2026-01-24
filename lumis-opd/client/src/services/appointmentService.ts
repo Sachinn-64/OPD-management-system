@@ -1,5 +1,6 @@
-import { FirestoreService, where, orderBy, limit as firestoreLimit, COLLECTIONS, Appointment, Visit } from '../lib/firebase';
-import type { QueryConstraint } from 'firebase/firestore';
+import { FirestoreService, COLLECTIONS, Appointment, Visit, Patient } from '../lib/firebase';
+import { db } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export type { Appointment };
 
@@ -81,10 +82,72 @@ class AppointmentService {
     }
   }
 
-  // Get today's queue (alias for getByDoctor with today's date)
+  // Get today's queue (with patient data and visit embedded)
   async getTodayQueue(doctorId: string): Promise<Appointment[]> {
-     const today = new Date().toISOString().split('T')[0];
-     return this.getByDoctor(doctorId, today);
+    const today = new Date().toISOString().split('T')[0];
+    console.log('Getting today queue for doctor:', doctorId, 'date:', today);
+    
+    const appointments = await this.getByDoctor(doctorId, today);
+    console.log('Appointments found:', appointments.length);
+    
+    // Fetch patient data and visit for each appointment
+    const appointmentsWithData = await Promise.all(
+      appointments.map(async (appointment) => {
+        try {
+          let patient = null;
+          let opdVisit = null;
+          
+          // Fetch patient data
+          if (appointment.patientId) {
+            const patientDoc = await getDoc(doc(db, COLLECTIONS.PATIENTS, appointment.patientId));
+            if (patientDoc.exists()) {
+              patient = { id: patientDoc.id, ...patientDoc.data() } as Patient;
+            }
+          }
+          
+          // Fetch or create visit
+          const existingVisit = await getVisitService().query('appointmentId', '==', appointment.id);
+          if (existingVisit.length > 0) {
+            opdVisit = existingVisit[0];
+          } else {
+            // Create a new visit for this appointment
+            const visitId = await getVisitService().create({
+              appointmentId: appointment.id!,
+              patientId: appointment.patientId,
+              doctorId: appointment.doctorId,
+              visitDate: appointment.appointmentDate,
+              visitStatus: 'OPEN',
+            } as any);
+            
+            opdVisit = {
+              id: visitId,
+              appointmentId: appointment.id,
+              patientId: appointment.patientId,
+              doctorId: appointment.doctorId,
+              visitDate: appointment.appointmentDate,
+              visitStatus: 'OPEN' as const,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+          }
+          
+          return {
+            ...appointment,
+            patient,
+            opdVisit,
+          } as Appointment;
+        } catch (err) {
+          console.error('Error processing appointment:', appointment.id, err);
+          return {
+            ...appointment,
+            opdVisit: { visitStatus: 'OPEN' } as Visit,
+          } as Appointment;
+        }
+      })
+    );
+    
+    console.log('Appointments with data:', appointmentsWithData);
+    return appointmentsWithData;
   }
 
   // Get appointments for a specific patient
@@ -106,35 +169,36 @@ class AppointmentService {
   // Get all appointments
   async getAll(options?: { limit?: number; date?: string }): Promise<Appointment[]> {
     try {
-      const constraints: QueryConstraint[] = [];
+      // Fetch all appointments and filter in memory to avoid composite index issues
+      const results = await getService().getAll([]);
+      console.log('All appointments fetched:', results.length);
+      
+      let filtered = results;
+      
+      // Filter by date if needed
       if (options?.date) {
-        constraints.push(where('appointmentDate', '==', options.date));
+        console.log('Filtering by date:', options.date);
+        filtered = filtered.filter(a => a.appointmentDate === options.date);
+        console.log('Appointments after date filter:', filtered.length);
       }
-      // Use single orderBy to avoid composite index requirement
-      constraints.push(orderBy('createdAt', 'desc'));
       
+      // Sort by createdAt desc
+      filtered = filtered.sort((a, b) => {
+        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+        return dateB - dateA;
+      });
+      
+      // Apply limit if specified
       if (options?.limit) {
-        constraints.push(firestoreLimit(options.limit));
+        filtered = filtered.slice(0, options.limit);
       }
       
-      const results = await getService().getAll(constraints);
-      console.log('Appointments fetched:', results.length, results);
-      return results;
+      console.log('Final appointments:', filtered.length, filtered.map(a => ({ id: a.id, doctorId: a.doctorId, date: a.appointmentDate })));
+      return filtered;
     } catch (err) {
       console.error('Error fetching appointments:', err);
-      // Fallback: try without orderBy
-      try {
-        const results = await getService().getAll([]);
-        console.log('Appointments fetched (fallback):', results.length);
-        // Filter by date if needed
-        if (options?.date) {
-          return results.filter(a => a.appointmentDate === options.date);
-        }
-        return results;
-      } catch (fallbackErr) {
-        console.error('Fallback also failed:', fallbackErr);
-        return [];
-      }
+      return [];
     }
   }
 
