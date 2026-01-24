@@ -1,7 +1,6 @@
-import { FirestoreService, where, orderBy, Timestamp, limit as firestoreLimit, COLLECTIONS, Patient } from '../lib/firebase';
+import { FirestoreService, where, Timestamp, COLLECTIONS, Patient } from '../lib/firebase';
 import { db } from '../config/firebase';
 import { collection, query, getDocs } from 'firebase/firestore';
-import type { QueryConstraint } from 'firebase/firestore';
 
 export type { Patient };
 
@@ -75,28 +74,40 @@ class PatientService {
       return service.query('uhid', '==', queryText);
     }
     
-    // For names, fetch recent patients and filter client-side 
-    const recentPatients = await service.getAll([
-      orderBy('createdAt', 'desc'),
-      firestoreLimit(100)
-    ]);
+    // For names, fetch all patients and filter client-side
+    const allPatients = await service.getAll([]);
     
     const lowerQuery = queryText.toLowerCase();
-    return recentPatients.filter(p => 
-      p.firstName.toLowerCase().includes(lowerQuery) || 
-      p.lastName.toLowerCase().includes(lowerQuery)
-    );
+    return allPatients.filter(p => 
+      p.firstName?.toLowerCase().includes(lowerQuery) || 
+      p.lastName?.toLowerCase().includes(lowerQuery)
+    ).slice(0, 100); // Limit to 100 results
   }
 
   // Get all patients with pagination
   async getAll(options?: { limit?: number }): Promise<Patient[]> {
-    const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
-    
-    if (options?.limit) {
-      constraints.push(firestoreLimit(options.limit));
+    try {
+      // Fetch all patients without ordering to avoid index issues
+      const patients = await this.getService().getAll([]);
+      console.log('All patients fetched:', patients.length);
+      
+      // Sort in memory by createdAt desc
+      patients.sort((a, b) => {
+        const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+        const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+        return dateB - dateA;
+      });
+      
+      // Apply limit if specified
+      if (options?.limit) {
+        return patients.slice(0, options.limit);
+      }
+      
+      return patients;
+    } catch (err) {
+      console.error('Error fetching patients:', err);
+      return [];
     }
-    
-    return this.getService().getAll(constraints);
   }
 
   // Update patient
