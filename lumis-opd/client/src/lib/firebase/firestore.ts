@@ -95,15 +95,37 @@ export class FirestoreService<T extends { id?: string }> {
     );
   }
 
+  // Helper to recursively clean undefined values from nested objects/arrays
+  private cleanUndefinedValues(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return null; // Convert undefined to null (Firestore accepts null)
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.cleanUndefinedValues(item));
+    }
+    
+    if (obj instanceof Date || obj instanceof Timestamp) {
+      return obj; // Keep Date and Timestamp as-is
+    }
+    
+    if (typeof obj === 'object') {
+      const cleaned: Record<string, any> = {};
+      Object.entries(obj).forEach(([key, value]) => {
+        if (value !== undefined) {
+          cleaned[key] = this.cleanUndefinedValues(value);
+        }
+      });
+      return cleaned;
+    }
+    
+    return obj;
+  }
+
   // Update a document
   async update(id: string, data: Partial<T>): Promise<void> {
-    // Clean data - remove undefined values that Firestore doesn't accept
-    const cleanedData: Record<string, any> = {};
-    Object.entries(data as Record<string, any>).forEach(([key, value]) => {
-      if (value !== undefined) {
-        cleanedData[key] = value;
-      }
-    });
+    // Clean data - recursively remove undefined values that Firestore doesn't accept
+    const cleanedData = this.cleanUndefinedValues(data);
     
     await updateDoc(this.getDocRef(id), {
       ...cleanedData,

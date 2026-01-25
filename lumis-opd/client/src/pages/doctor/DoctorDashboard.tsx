@@ -12,6 +12,7 @@ import {
   History,
   CheckCircle2,
   X,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useConsultationStore } from '../../store/consultationStore';
@@ -46,7 +47,7 @@ export const DoctorDashboard: React.FC = () => {
   });
 
   // Fetch today's queue using doctorId from profile
-  const { data: queueData, refetch: refetchQueue, isLoading: isLoadingQueue, error: queueError } = useQuery({
+  const { data: queueData, refetch: refetchQueue, isLoading: isLoadingQueue, error: queueError, isFetching: isRefetching } = useQuery({
     queryKey: ['todayQueue', doctorProfile?.id],
     queryFn: async () => {
       console.log('Fetching queue for doctor:', doctorProfile?.id);
@@ -55,9 +56,10 @@ export const DoctorDashboard: React.FC = () => {
       return result;
     },
     enabled: !!doctorProfile?.id,
-    refetchInterval: 60000, 
-    staleTime: 0,
-    refetchOnMount: 'always',
+    staleTime: 30000, // Data considered fresh for 30 seconds
+    refetchOnMount: true,
+    refetchOnWindowFocus: true, // Refresh when user comes back to tab
+    refetchInterval: false, // Disabled - use manual refresh to save Firebase reads
   });
 
   // Debug logging
@@ -73,22 +75,33 @@ export const DoctorDashboard: React.FC = () => {
     console.log('Current Visit:', currentVisit);
   }, [user, doctorProfile, isLoadingProfile, profileError, queueData, isLoadingQueue, queueError, currentVisit]);
 
-  // Set queue data
+  // Set queue data and update currentVisit with fresh data
   useEffect(() => {
     if (queueData) {
       setTodayQueue(queueData);
 
-      // Auto-select first non-completed patient if none selected
-      if (queueData.length > 0 && !currentVisit) {
+      // If there's a currently selected visit, update it with fresh data from the queue
+      if (currentVisit?.id) {
+        const freshVisit = queueData.find(a => a.id === currentVisit.id);
+        if (freshVisit && freshVisit.opdVisit) {
+          // Only update if the opdVisit data has changed (e.g., status or embedded data)
+          const currentStatus = currentVisit.opdVisit?.visitStatus;
+          const freshStatus = freshVisit.opdVisit?.visitStatus;
+          if (currentStatus !== freshStatus || freshStatus === 'COMPLETED') {
+            selectQueuePatient(queueData.findIndex(a => a.id === currentVisit.id));
+          }
+        }
+      } else if (queueData.length > 0) {
+        // Auto-select first non-completed patient if none selected
         const firstPendingIndex = queueData.findIndex(
           (appointment) => appointment.opdVisit?.visitStatus !== 'COMPLETED'
         );
         selectQueuePatient(firstPendingIndex >= 0 ? firstPendingIndex : 0);
       }
     }
-  }, [queueData, setTodayQueue, currentVisit, selectQueuePatient]);
+  }, [queueData, setTodayQueue, currentVisit?.id, selectQueuePatient]);
 
-  // Listen for real-time updates
+  // Listen for socket notifications
   const [notificationBanner, setNotificationBanner] = useState<any>(null);
 
   useEffect(() => {
@@ -293,7 +306,21 @@ export const DoctorDashboard: React.FC = () => {
           <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 sm:gap-6">
             {/* Patient Queue - Collapsible on mobile */}
             <div className="lg:col-span-3 order-1">
-              <Card title="Today's Queue" noPadding className="max-h-[40vh] lg:max-h-none lg:h-[calc(100vh-280px)] overflow-auto">
+              <Card
+                title="Today's Queue"
+                noPadding
+                className="max-h-[40vh] lg:max-h-none lg:h-[calc(100vh-280px)] overflow-auto"
+                actions={
+                  <button
+                    onClick={() => refetchQueue()}
+                    disabled={isRefetching}
+                    className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
+                    title="Refresh queue"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${isRefetching ? 'animate-spin' : ''}`} />
+                  </button>
+                }
+              >
                 <PatientQueue />
               </Card>
             </div>

@@ -2,8 +2,9 @@ import { FirestoreService, where, orderBy, COLLECTIONS, Visit, VitalRecord, Clin
 import type { QueryConstraint } from 'firebase/firestore';
 
 class VisitService {
-  private getService(clinicId: string) {
-    return new FirestoreService<Visit>(COLLECTIONS.VISITS(clinicId));
+  private getService(_clinicId: string) {
+    // Note: Using flat collections now (no clinic prefix)
+    return new FirestoreService<Visit>(COLLECTIONS.VISITS);
   }
 
   // Create a new visit (usually created when appointment is checked in)
@@ -12,7 +13,7 @@ class VisitService {
     visitData: Omit<Visit, 'id' | 'clinicId' | 'createdAt' | 'updatedAt'>
   ): Promise<Visit> {
     const service = this.getService(clinicId);
-    
+
     const id = await service.create({
       ...visitData,
       clinicId,
@@ -23,7 +24,7 @@ class VisitService {
       diagnoses: [],
       prescriptions: [],
     } as any);
-    
+
     return {
       id,
       ...visitData,
@@ -86,7 +87,7 @@ class VisitService {
   async addVitals(clinicId: string, visitId: string, vitals: VitalRecord): Promise<void> {
     const visit = await this.getById(clinicId, visitId);
     if (!visit) throw new Error('Visit not found');
-    
+
     const updatedVitals = [...(visit.vitals || []), vitals];
     return this.update(clinicId, visitId, { vitals: updatedVitals });
   }
@@ -95,7 +96,7 @@ class VisitService {
   async addHistory(clinicId: string, visitId: string, history: ClinicalHistory): Promise<void> {
     const visit = await this.getById(clinicId, visitId);
     if (!visit) throw new Error('Visit not found');
-    
+
     const updatedHistories = [...(visit.histories || []), { ...history, recordedAt: new Date() }];
     return this.update(clinicId, visitId, { histories: updatedHistories });
   }
@@ -104,7 +105,7 @@ class VisitService {
   async addNote(clinicId: string, visitId: string, note: ClinicalNote): Promise<void> {
     const visit = await this.getById(clinicId, visitId);
     if (!visit) throw new Error('Visit not found');
-    
+
     const updatedNotes = [...(visit.notes || []), { ...note, recordedAt: new Date() }];
     return this.update(clinicId, visitId, { notes: updatedNotes });
   }
@@ -113,7 +114,7 @@ class VisitService {
   async addDiagnosis(clinicId: string, visitId: string, diagnosis: Diagnosis): Promise<void> {
     const visit = await this.getById(clinicId, visitId);
     if (!visit) throw new Error('Visit not found');
-    
+
     const updatedDiagnoses = [...(visit.diagnoses || []), { ...diagnosis, recordedAt: new Date() }];
     return this.update(clinicId, visitId, { diagnoses: updatedDiagnoses });
   }
@@ -122,7 +123,7 @@ class VisitService {
   async addPrescription(clinicId: string, visitId: string, prescription: Prescription): Promise<void> {
     const visit = await this.getById(clinicId, visitId);
     if (!visit) throw new Error('Visit not found');
-    
+
     const updatedPrescriptions = [...(visit.prescriptions || []), { ...prescription, prescribedAt: new Date() }];
     return this.update(clinicId, visitId, { prescriptions: updatedPrescriptions });
   }

@@ -14,7 +14,7 @@ class AppointmentService {
     appointmentData: Omit<Appointment, 'id' | 'createdAt' | 'updatedAt'>
   ): Promise<Appointment> {
     const service = getService();
-    
+
     // Set default status if not provided
     const dataWithDefaults = {
       ...appointmentData,
@@ -22,11 +22,11 @@ class AppointmentService {
       paymentStatus: appointmentData.paymentStatus || 'pending',
       appointmentTime: appointmentData.appointmentTime || new Date().toTimeString().slice(0, 5),
     };
-    
+
     const id = await service.create(dataWithDefaults as any);
-    
+
     console.log('Appointment created:', id, dataWithDefaults);
-    
+
     return {
       id,
       ...dataWithDefaults,
@@ -65,11 +65,11 @@ class AppointmentService {
       // Simple query without composite index
       const allAppointments = await getService().query('doctorId', '==', doctorId);
       let results = allAppointments;
-      
+
       if (date) {
         results = results.filter(a => a.appointmentDate === date);
       }
-      
+
       // Sort in memory
       return results.sort((a, b) => {
         const timeA = a.appointmentTime || '';
@@ -86,17 +86,17 @@ class AppointmentService {
   async getTodayQueue(doctorId: string): Promise<Appointment[]> {
     const today = new Date().toISOString().split('T')[0];
     console.log('Getting today queue for doctor:', doctorId, 'date:', today);
-    
+
     const appointments = await this.getByDoctor(doctorId, today);
     console.log('Appointments found:', appointments.length);
-    
+
     // Fetch patient data and visit for each appointment
     const appointmentsWithData = await Promise.all(
       appointments.map(async (appointment) => {
         try {
           let patient = null;
           let opdVisit = null;
-          
+
           // Fetch patient data
           if (appointment.patientId) {
             const patientDoc = await getDoc(doc(db, COLLECTIONS.PATIENTS, appointment.patientId));
@@ -104,7 +104,7 @@ class AppointmentService {
               patient = { id: patientDoc.id, ...patientDoc.data() } as Patient;
             }
           }
-          
+
           // Fetch or create visit
           const existingVisit = await getVisitService().query('appointmentId', '==', appointment.id);
           if (existingVisit.length > 0) {
@@ -118,7 +118,7 @@ class AppointmentService {
               visitDate: appointment.appointmentDate,
               visitStatus: 'OPEN',
             } as any);
-            
+
             opdVisit = {
               id: visitId,
               appointmentId: appointment.id,
@@ -130,7 +130,7 @@ class AppointmentService {
               updatedAt: new Date(),
             };
           }
-          
+
           return {
             ...appointment,
             patient,
@@ -145,7 +145,7 @@ class AppointmentService {
         }
       })
     );
-    
+
     console.log('Appointments with data:', appointmentsWithData);
     return appointmentsWithData;
   }
@@ -172,28 +172,28 @@ class AppointmentService {
       // Fetch all appointments and filter in memory to avoid composite index issues
       const results = await getService().getAll([]);
       console.log('All appointments fetched:', results.length);
-      
+
       let filtered = results;
-      
+
       // Filter by date if needed
       if (options?.date) {
         console.log('Filtering by date:', options.date);
         filtered = filtered.filter(a => a.appointmentDate === options.date);
         console.log('Appointments after date filter:', filtered.length);
       }
-      
+
       // Sort by createdAt desc
       filtered = filtered.sort((a, b) => {
         const dateA = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
         const dateB = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
         return dateB - dateA;
       });
-      
+
       // Apply limit if specified
       if (options?.limit) {
         filtered = filtered.slice(0, options.limit);
       }
-      
+
       console.log('Final appointments:', filtered.length, filtered.map(a => ({ id: a.id, doctorId: a.doctorId, date: a.appointmentDate })));
       return filtered;
     } catch (err) {

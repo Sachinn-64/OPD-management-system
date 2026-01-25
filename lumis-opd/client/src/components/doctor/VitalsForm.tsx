@@ -32,7 +32,7 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
   // Fetch existing vitals
   const { data: existingVitalsArray } = useQuery({
     queryKey: ['vitals', currentVisit?.opdVisit?.id],
-    queryFn: () => consultationService.getVitalsByVisit(currentVisit!.opdVisit!.id),
+    queryFn: () => consultationService.getVitalsByVisit(currentVisit!.opdVisit!.id!),
     enabled: !!currentVisit?.opdVisit?.id,
   });
 
@@ -41,7 +41,7 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
   // Fetch patient's vital history
   const { data: vitalHistory } = useQuery({
     queryKey: ['vitalHistory', currentPatient?.id],
-    queryFn: () => consultationService.getVitalsByPatient(currentPatient!.id, { limit: 5 }),
+    queryFn: () => consultationService.getVitalsByPatient(currentPatient!.id!, { limit: 5 }),
     enabled: !!currentPatient?.id,
   });
 
@@ -57,7 +57,7 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
         oxygenSaturation: existingVitals.oxygenSaturation?.toString() || '',
         weight: existingVitals.weight?.toString() || '',
         height: existingVitals.height?.toString() || '',
-        serumCreatinine: existingVitals.details?.find(d => d.vitalName === 'Serum Creatinine')?.vitalValue || '',
+        serumCreatinine: String(existingVitals.details?.find(d => d.vitalName === 'Serum Creatinine')?.vitalValue || ''),
         notes: existingVitals.notes || '',
       });
       setVitals(existingVitals);
@@ -88,7 +88,7 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!currentVisit?.opdVisit?.id || !currentPatient) return;
 
     const calculatedBMI = calculateBMI();
@@ -113,7 +113,10 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
       notes: formData.notes || undefined,
     };
 
-    saveMutation.mutate(vitalData);
+    saveMutation.mutate({
+      visitId: currentVisit.opdVisit.id!,
+      vitals: vitalData as any,
+    });
   };
 
   const calculateBMI = () => {
@@ -137,7 +140,7 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
 
   const calculateeGFR = () => {
     const creatPromise = parseFloat(formData.serumCreatinine);
-    
+
     // Calculate age from DOB
     let age = 0;
     if (currentPatient?.dateOfBirth) {
@@ -149,7 +152,7 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
         age--;
       }
     }
-    
+
     const isFemale = currentPatient?.gender?.toLowerCase() === 'female';
 
     if (creatPromise && age) {
@@ -157,7 +160,7 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
       // GFR = 141 * min(Scr/k, 1)^a * max(Scr/k, 1)^-1.209 * 0.993^Age * 1.018 [if female] * 1.159 [if black]
       // k = 0.7 (female), 0.9 (male)
       // a = -0.329 (female), -0.411 (male)
-      
+
       const k = isFemale ? 0.7 : 0.9;
       const a = isFemale ? -0.329 : -0.411;
       const scr = creatPromise;
@@ -177,21 +180,21 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
   return (
     <div className="space-y-6">
       {/* Vital History */}
-      {vitalHistory && vitalHistory.data && vitalHistory.data.length > 0 && (
+      {vitalHistory && vitalHistory.length > 0 && (
         <Card title="Recent Vitals" className="bg-blue-50">
           <div className="flex items-center gap-6 text-sm">
-            {vitalHistory.data[0] && (
+            {vitalHistory[0] && (
               <>
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4 text-blue-600" />
                   <span className="text-gray-600">Last Visit:</span>
                   <span className="font-medium">
-                    {vitalHistory.data[0].bloodPressureSystolic}/{vitalHistory.data[0].bloodPressureDiastolic} mmHg
+                    {vitalHistory[0].bloodPressureSystolic}/{vitalHistory[0].bloodPressureDiastolic} mmHg
                   </span>
                   <span className="text-gray-400">|</span>
-                  <span className="font-medium">{vitalHistory.data[0].heartRate} bpm</span>
+                  <span className="font-medium">{vitalHistory[0].heartRate || vitalHistory[0].pulseRate} bpm</span>
                   <span className="text-gray-400">|</span>
-                  <span className="font-medium">{vitalHistory.data[0].temperature}°F</span>
+                  <span className="font-medium">{vitalHistory[0].temperature}°F</span>
                 </div>
               </>
             )}
@@ -205,7 +208,7 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
           {VITAL_SIGNS.map((vital) => (
             <div key={vital.key}>
               <Input
-              
+
                 label={vital.label}
                 name={vital.key}
                 type="number"
@@ -241,7 +244,7 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
               placeholder="Enter value"
               helperText="mg/dL"
             />
-            
+
             {/* BSA Display */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">BSA (Body Surface Area)</label>

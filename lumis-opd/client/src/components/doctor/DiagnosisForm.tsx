@@ -23,14 +23,14 @@ export const DiagnosisForm: React.FC = () => {
   // Fetch existing diagnoses
   const { data: existingDiagnoses } = useQuery({
     queryKey: ['diagnoses', currentVisit?.opdVisit?.id],
-    queryFn: () => consultationService.getDiagnosisByVisit(currentVisit!.opdVisit!.id),
+    queryFn: () => consultationService.getDiagnosisByVisit(currentVisit!.opdVisit!.id!),
     enabled: !!currentVisit?.opdVisit?.id,
   });
 
   // Fetch patient's diagnosis history
   const { data: diagnosisHistory } = useQuery({
     queryKey: ['diagnosisHistory', currentPatient?.id],
-    queryFn: () => consultationService.getDiagnosisByPatient(currentPatient!.id),
+    queryFn: () => consultationService.getDiagnosisByPatient(currentPatient!.id!),
     enabled: !!currentPatient?.id,
   });
 
@@ -60,17 +60,16 @@ export const DiagnosisForm: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!currentVisit?.opdVisit?.id || !currentPatient || !formData.diagnosisName.trim()) return;
 
     saveMutation.mutate({
-      visitId: currentVisit.opdVisit.id,
-      patientId: currentPatient.id,
+      visitId: currentVisit.opdVisit.id!,
+      patientId: currentPatient.id!,
       diagnosisCode: formData.diagnosisCode || undefined,
+      diagnosisText: formData.diagnosisName.trim(),
       diagnosisName: formData.diagnosisName.trim(),
       diagnosisType: formData.diagnosisType,
-      severity: formData.severity || undefined,
-      notes: formData.notes || undefined,
     });
   };
 

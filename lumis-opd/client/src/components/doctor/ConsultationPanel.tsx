@@ -118,7 +118,7 @@ export const ConsultationPanel: React.FC = () => {
   // Fetch vitals for printing
   const { data: vitalsData } = useQuery({
     queryKey: ['appointmentVitals', currentVisit?.opdVisit?.id],
-    queryFn: () => consultationService.getVitalsByVisit(currentVisit!.opdVisit!.id),
+    queryFn: () => consultationService.getVitalsByVisit(currentVisit!.opdVisit!.id!),
     enabled: !!currentVisit?.opdVisit?.id,
   });
 
@@ -307,7 +307,8 @@ export const ConsultationPanel: React.FC = () => {
 
         for (const history of histories || []) {
           const historyType = (history as any).historyType;
-          const text = (history as any).historyText;
+          // Handle both field names - description (new) and historyText (legacy)
+          const text = (history as any).description || (history as any).historyText;
 
           console.log('Parsing history:', { historyType, text });
 
@@ -339,7 +340,8 @@ export const ConsultationPanel: React.FC = () => {
         let followUpNote = '';
         for (const note of notes || []) {
           const noteType = (note as any).noteType;
-          const text = (note as any).noteText;
+          // Handle both field names - noteText (stored) and content (alias)
+          const text = (note as any).noteText || (note as any).content;
 
           console.log('Parsing note:', { noteType, text });
 
@@ -459,7 +461,7 @@ export const ConsultationPanel: React.FC = () => {
     // Use opdVisit.id if available, otherwise fall back to appointment id
     const visitId = currentVisit?.opdVisit?.id || currentVisit?.id;
     console.log('Starting consultation, visitId:', visitId);
-    
+
     if (visitId) {
       updateStatusMutation.mutate({
         visitId,
@@ -613,38 +615,38 @@ export const ConsultationPanel: React.FC = () => {
   const generateConsultationPDF = async () => {
     if (!currentVisit?.opdVisit?.id || !currentPatient) return;
     setIsDownloadingPdf(true);
-    
+
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 15;
       let yPos = 20;
-      
+
       // Helper function for centered text
       const centerText = (text: string, y: number, fontSize: number = 12) => {
         doc.setFontSize(fontSize);
         const textWidth = doc.getTextWidth(text);
         doc.text(text, (pageWidth - textWidth) / 2, y);
       };
-      
+
       // Helper to add section
       const addSection = (title: string, content: string | string[]) => {
         if (!content || (Array.isArray(content) && content.length === 0)) return;
-        
+
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(11);
         doc.text(title, margin, yPos);
         yPos += 6;
-        
+
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
-        
+
         const textContent = Array.isArray(content) ? content.join('\n') : content;
         const lines = doc.splitTextToSize(textContent, pageWidth - 2 * margin);
         doc.text(lines, margin, yPos);
         yPos += lines.length * 5 + 8;
       };
-      
+
       // Header
       doc.setFont('helvetica', 'bold');
       centerText('LUMIS HEALTHCARE', yPos, 16);
@@ -652,85 +654,95 @@ export const ConsultationPanel: React.FC = () => {
       doc.setFont('helvetica', 'normal');
       centerText('Consultation Report', yPos, 12);
       yPos += 10;
-      
+
       // Line
       doc.setDrawColor(0, 150, 100);
       doc.line(margin, yPos, pageWidth - margin, yPos);
       yPos += 10;
-      
+
       // Patient Info
       doc.setFontSize(10);
       doc.text(`Patient: ${currentPatient.firstName} ${currentPatient.lastName}`, margin, yPos);
       doc.text(`UHID: ${currentPatient.uhid || 'N/A'}`, pageWidth / 2, yPos);
       yPos += 6;
       doc.text(`Date: ${new Date().toLocaleDateString()}`, margin, yPos);
-      doc.text(`Age/Gender: ${currentPatient.age || 'N/A'} / ${currentPatient.gender || 'N/A'}`, pageWidth / 2, yPos);
+      // Calculate age from dateOfBirth
+      const calculateAge = (dob: string) => {
+        const birthDate = new Date(dob);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+        return age;
+      };
+      const patientAge = currentPatient.dateOfBirth ? calculateAge(currentPatient.dateOfBirth) : 'N/A';
+      doc.text(`Age/Gender: ${patientAge} / ${currentPatient.gender || 'N/A'}`, pageWidth / 2, yPos);
       yPos += 10;
-      
+
       // Chief Complaint
       if (notesData.chiefComplaint) {
         addSection('Chief Complaint:', notesData.chiefComplaint);
       }
-      
+
       // Examination
       if (notesData.examination) {
         addSection('Examination:', notesData.examination);
       }
-      
+
       // Vitals
       const visit = currentVisit.opdVisit;
       if (visit?.vitals && visit.vitals.length > 0) {
         const vitals = visit.vitals[0];
         const vitalsText = [
-          vitals.bloodPressure ? `BP: ${vitals.bloodPressure}` : '',
-          vitals.pulse ? `Pulse: ${vitals.pulse} bpm` : '',
+          vitals.bloodPressureSystolic && vitals.bloodPressureDiastolic ? `BP: ${vitals.bloodPressureSystolic}/${vitals.bloodPressureDiastolic} mmHg` : '',
+          vitals.pulseRate ? `Pulse: ${vitals.pulseRate} bpm` : '',
           vitals.temperature ? `Temp: ${vitals.temperature}°F` : '',
           vitals.weight ? `Weight: ${vitals.weight} kg` : '',
-          vitals.spo2 ? `SpO2: ${vitals.spo2}%` : '',
+          vitals.spo2 || vitals.oxygenSaturation ? `SpO2: ${vitals.spo2 || vitals.oxygenSaturation}%` : '',
         ].filter(Boolean).join(', ');
-        
+
         if (vitalsText) {
           addSection('Vitals:', vitalsText);
         }
       }
-      
+
       // Diagnosis
       if (diagnosisData.diagnoses && diagnosisData.diagnoses.length > 0) {
-        const diagnosisText = diagnosisData.diagnoses.map(d => 
-          `${d.name}${d.icdCode ? ` (${d.icdCode})` : ''} - ${d.type}`
+        const diagnosisText = diagnosisData.diagnoses.map(d =>
+          `${d.diagnosisText}${d.icdCode ? ` (${d.icdCode})` : ''} - ${d.type}`
         );
         addSection('Diagnosis:', diagnosisText);
       }
-      
+
       // Assessment
       if (diagnosisData.assessment) {
         addSection('Assessment:', diagnosisData.assessment);
       }
-      
+
       // Prescription
       if (prescriptionData && prescriptionData.length > 0) {
-        const rxText = prescriptionData.filter(p => p.drugName).map((p, i) => 
+        const rxText = prescriptionData.filter(p => p.drugName).map((p, i) =>
           `${i + 1}. ${p.drugName} - ${p.dosage || ''} - ${p.frequency} - ${p.durationDays} days${p.instructions ? ` (${p.instructions})` : ''}`
         );
         addSection('Prescription:', rxText);
       }
-      
+
       // Advice
       const adviceItems = [
         adviceData.generalAdvice ? `General: ${adviceData.generalAdvice}` : '',
         adviceData.dietaryAdvice ? `Diet: ${adviceData.dietaryAdvice}` : '',
         adviceData.activityAdvice ? `Activity: ${adviceData.activityAdvice}` : '',
       ].filter(Boolean);
-      
+
       if (adviceItems.length > 0) {
         addSection('Advice:', adviceItems);
       }
-      
+
       // Follow-up
       if (diagnosisData.followUp) {
         addSection('Follow-up:', diagnosisData.followUp);
       }
-      
+
       // Footer
       yPos = doc.internal.pageSize.getHeight() - 30;
       doc.setDrawColor(0, 150, 100);
@@ -739,7 +751,7 @@ export const ConsultationPanel: React.FC = () => {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'italic');
       centerText('This is a computer-generated document', yPos, 9);
-      
+
       // Save PDF
       doc.save(`consultation_${currentPatient.uhid || 'patient'}_${new Date().toISOString().split('T')[0]}.pdf`);
       setIsDownloadingPdf(false);
@@ -1400,8 +1412,8 @@ export const ConsultationPanel: React.FC = () => {
 
         {/* Right: Vitals Sidebar (4 columns) */}
         <div className="col-span-4 order-1 lg:order-2">
-          <Card 
-            title="Vital Signs" 
+          <Card
+            title="Vital Signs"
             className="sticky top-6 border border-emerald-200 bg-emerald-50"
             actions={
               <Button

@@ -10,7 +10,7 @@ export const VitalsDisplay: React.FC = () => {
   // Fetch vitals for this appointment's opdVisit
   const { data: vitalsData, isLoading } = useQuery<Vitals[]>({
     queryKey: ['appointmentVitals', selectedAppointment?.opdVisit?.id],
-    queryFn: () => consultationService.getVitalsByVisit(selectedAppointment!.opdVisit!.id),
+    queryFn: () => consultationService.getVitalsByVisit(selectedAppointment!.opdVisit!.id!),
     enabled: !!selectedAppointment?.opdVisit?.id,
   });
 

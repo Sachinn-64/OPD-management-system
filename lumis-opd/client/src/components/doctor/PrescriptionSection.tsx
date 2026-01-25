@@ -111,7 +111,9 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
     setIsLoadingPrevious(true);
     try {
       const response = await consultationService.getPrescriptionsByPatient(patientId, previousPage, previousLimit);
-      setPreviousPrescriptions(response || []);
+      // Response may be array or object with data property - handle both
+      const prescrList = Array.isArray(response) ? response : ((response as any)?.data || []);
+      setPreviousPrescriptions(prescrList);
     } catch (error) {
       console.error('Failed to load previous prescriptions:', error);
       setPreviousPrescriptions([]);

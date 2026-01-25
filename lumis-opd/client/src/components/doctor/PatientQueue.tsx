@@ -13,7 +13,7 @@ export const PatientQueue: React.FC = () => {
 
     const query = searchQuery.toLowerCase();
     return todayQueue.filter(a => {
-      const patientName = a.patient 
+      const patientName = a.patient
         ? `${a.patient.firstName} ${a.patient.lastName}`.toLowerCase()
         : '';
       const uhid = a.patient?.uhid?.toLowerCase() || '';
@@ -97,20 +97,18 @@ export const PatientQueue: React.FC = () => {
                 <div
                   key={appointment.id}
                   onClick={() => selectQueuePatient(actualIndex)}
-                  className={`p-4 border-b cursor-pointer transition-all ${
-                    isSelected 
-                      ? 'bg-emerald-50 border-l-4 border-l-emerald-600' 
-                      : 'bg-white hover:bg-gray-50 border-l-4 border-l-transparent'
-                  }`}
+                  className={`p-4 border-b cursor-pointer transition-all ${isSelected
+                    ? 'bg-emerald-50 border-l-4 border-l-emerald-600'
+                    : 'bg-white hover:bg-gray-50 border-l-4 border-l-transparent'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     {/* Queue Number */}
                     <div
-                      className={`w-11 h-11 rounded-lg flex items-center justify-center font-bold text-base shrink-0 ${
-                        isSelected
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                      }`}
+                      className={`w-11 h-11 rounded-lg flex items-center justify-center font-bold text-base shrink-0 ${isSelected
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}
                     >
                       {appointment.queueNumber || (actualIndex + 1)}
                     </div>
@@ -121,7 +119,7 @@ export const PatientQueue: React.FC = () => {
                         {patient ? `${patient.firstName} ${patient.lastName}` : 'Patient'}
                       </p>
                       <div className="flex items-center gap-3 mt-0.5 text-sm text-gray-600">
-                        <span className="text-emerald-700 font-medium">{patient?.uhid || `#${appointment.id.slice(0, 8)}`}</span>
+                        <span className="text-emerald-700 font-medium">{patient?.uhid || `#${(appointment.id || '').slice(0, 8)}`}</span>
                         {patient?.dateOfBirth && (
                           <>
                             <span className="text-gray-400">•</span>
@@ -161,11 +159,10 @@ export const PatientQueue: React.FC = () => {
                 <div
                   key={appointment.id}
                   onClick={() => selectQueuePatient(actualIndex)}
-                  className={`p-4 border-b cursor-pointer transition-all ${
-                    isSelected 
-                      ? 'bg-emerald-50 border-l-4 border-l-emerald-600' 
-                      : 'bg-gray-50 hover:bg-gray-100 border-l-4 border-l-transparent'
-                  }`}
+                  className={`p-4 border-b cursor-pointer transition-all ${isSelected
+                    ? 'bg-emerald-50 border-l-4 border-l-emerald-600'
+                    : 'bg-gray-50 hover:bg-gray-100 border-l-4 border-l-transparent'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     {/* Queue Number */}
@@ -179,7 +176,7 @@ export const PatientQueue: React.FC = () => {
                         {patient ? `${patient.firstName} ${patient.lastName}` : 'Patient'}
                       </p>
                       <div className="flex items-center gap-3 mt-0.5 text-sm text-gray-500">
-                        <span className="text-emerald-700 font-medium">{patient?.uhid || `#${appointment.id.slice(0, 8)}`}</span>
+                        <span className="text-emerald-700 font-medium">{patient?.uhid || `#${(appointment.id || '').slice(0, 8)}`}</span>
                         {patient?.dateOfBirth && (
                           <>
                             <span className="text-gray-400">•</span>

@@ -7,7 +7,6 @@ import {
   TrendingUp,
   Users,
   CreditCard,
-  Settings,
   LogOut,
   Search,
   Eye,
@@ -21,7 +20,6 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { superAdminService } from '../../services/firebase/superAdminService';
-import { clinicFirebaseService } from '../../services/firebase/clinicService';
 import { logOut } from '../../lib/firebase/auth';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -45,13 +43,13 @@ export const SuperAdminDashboard: React.FC = () => {
   }, [user, navigate]);
 
   // Fetch platform analytics
-  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+  const { data: analytics, isLoading: _analyticsLoading } = useQuery({
     queryKey: ['platform-analytics'],
     queryFn: () => superAdminService.getPlatformAnalytics(),
   });
 
   // Fetch all clinics
-  const { data: allClinics = [], isLoading: clinicsLoading } = useQuery({
+  const { data: allClinics = [], isLoading: _clinicsLoading } = useQuery({
     queryKey: ['all-clinics'],
     queryFn: () => superAdminService.getAllClinics(),
   });
@@ -80,11 +78,11 @@ export const SuperAdminDashboard: React.FC = () => {
 
   const filteredClinics = searchTerm
     ? allClinics.filter(
-        (clinic) =>
-          clinic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          clinic.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          clinic.phone.includes(searchTerm)
-      )
+      (clinic) =>
+        clinic.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        clinic.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        clinic.phone.includes(searchTerm)
+    )
     : allClinics;
 
   if (!user) {
@@ -145,44 +143,40 @@ export const SuperAdminDashboard: React.FC = () => {
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`${
-                  activeTab === 'overview'
+                className={`${activeTab === 'overview'
                     ? 'border-purple-500 text-purple-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
               >
                 <TrendingUp className="w-5 h-5 mr-2" />
                 Overview
               </button>
               <button
                 onClick={() => setActiveTab('clinics')}
-                className={`${
-                  activeTab === 'clinics'
+                className={`${activeTab === 'clinics'
                     ? 'border-purple-500 text-purple-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
               >
                 <Building2 className="w-5 h-5 mr-2" />
                 Clinics ({allClinics.length})
               </button>
               <button
                 onClick={() => setActiveTab('analytics')}
-                className={`${
-                  activeTab === 'analytics'
+                className={`${activeTab === 'analytics'
                     ? 'border-purple-500 text-purple-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
               >
                 <Activity className="w-5 h-5 mr-2" />
                 Analytics
               </button>
               <button
                 onClick={() => setActiveTab('subscriptions')}
-                className={`${
-                  activeTab === 'subscriptions'
+                className={`${activeTab === 'subscriptions'
                     ? 'border-purple-500 text-purple-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
               >
                 <CreditCard className="w-5 h-5 mr-2" />
                 Subscriptions
@@ -286,13 +280,12 @@ export const SuperAdminDashboard: React.FC = () => {
                     </div>
                     <div className="flex items-center space-x-3">
                       <span
-                        className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                          clinic.subscriptionStatus === 'active'
+                        className={`px-2 py-1 text-xs font-semibold rounded-full ${clinic.subscriptionStatus === 'active'
                             ? 'bg-green-100 text-green-800'
                             : clinic.subscriptionStatus === 'trial'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
                       >
                         {clinic.subscriptionStatus}
                       </span>
@@ -362,13 +355,12 @@ export const SuperAdminDashboard: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
-                            className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              clinic.subscriptionStatus === 'active'
+                            className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${clinic.subscriptionStatus === 'active'
                                 ? 'bg-green-100 text-green-800'
                                 : clinic.subscriptionStatus === 'trial'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
                           >
                             {clinic.subscriptionStatus}
                           </span>
@@ -476,8 +468,8 @@ export const SuperAdminDashboard: React.FC = () => {
                             days remaining
                           </p>
                         </div>
-                        <Button 
-                          variant="primary" 
+                        <Button
+                          variant="primary"
                           size="sm"
                           onClick={() => setSubscriptionModalClinic(clinic)}
                         >
@@ -495,8 +487,8 @@ export const SuperAdminDashboard: React.FC = () => {
 
       {/* Clinic Details Modal */}
       {selectedClinic && (
-        <ClinicDetailsModal 
-          clinic={selectedClinic} 
+        <ClinicDetailsModal
+          clinic={selectedClinic}
           onClose={() => setSelectedClinic(null)}
           onManageSubscription={() => {
             setSubscriptionModalClinic(selectedClinic);
@@ -514,16 +506,16 @@ export const SuperAdminDashboard: React.FC = () => {
                 <h2 className="text-2xl font-bold text-gray-900">Manage Subscription</h2>
                 <p className="text-gray-500">{subscriptionModalClinic.name}</p>
               </div>
-              <button 
-                onClick={() => setSubscriptionModalClinic(null)} 
+              <button
+                onClick={() => setSubscriptionModalClinic(null)}
                 className="text-gray-400 hover:text-gray-600"
               >
                 <XCircle className="w-6 h-6" />
               </button>
             </div>
-            <SubscriptionManager 
-              clinic={subscriptionModalClinic} 
-              onClose={() => setSubscriptionModalClinic(null)} 
+            <SubscriptionManager
+              clinic={subscriptionModalClinic}
+              onClose={() => setSubscriptionModalClinic(null)}
             />
           </Card>
         </div>
@@ -533,8 +525,8 @@ export const SuperAdminDashboard: React.FC = () => {
 };
 
 // Clinic Details Modal Component
-const ClinicDetailsModal: React.FC<{ 
-  clinic: Clinic; 
+const ClinicDetailsModal: React.FC<{
+  clinic: Clinic;
   onClose: () => void;
   onManageSubscription: () => void;
 }> = ({ clinic, onClose, onManageSubscription }) => {
@@ -568,13 +560,12 @@ const ClinicDetailsModal: React.FC<{
               <div>
                 <p className="text-sm text-gray-600">Status</p>
                 <span
-                  className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    clinic.subscriptionStatus === 'active'
+                  className={`px-2 py-1 text-xs font-semibold rounded-full ${clinic.subscriptionStatus === 'active'
                       ? 'bg-green-100 text-green-800'
                       : clinic.subscriptionStatus === 'trial'
-                      ? 'bg-yellow-100 text-yellow-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
                 >
                   {clinic.subscriptionStatus}
                 </span>

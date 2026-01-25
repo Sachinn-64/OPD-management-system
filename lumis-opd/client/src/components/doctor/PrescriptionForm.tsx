@@ -23,7 +23,7 @@ export const PrescriptionForm: React.FC = () => {
   // Fetch existing prescriptions
   const { data: existingPrescriptions } = useQuery({
     queryKey: ['prescriptions', currentVisit?.opdVisit?.id],
-    queryFn: () => consultationService.getPrescriptionsByVisit(currentVisit!.opdVisit!.id),
+    queryFn: () => consultationService.getPrescriptionsByVisit(currentVisit!.opdVisit!.id!),
     enabled: !!currentVisit?.opdVisit?.id,
   });
 
@@ -52,7 +52,7 @@ export const PrescriptionForm: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!currentVisit?.opdVisit?.id || !currentPatient) return;
 
     if (!formData.medicationName.trim() || !formData.dosage || !formData.frequency || !formData.duration) {
@@ -60,8 +60,8 @@ export const PrescriptionForm: React.FC = () => {
     }
 
     saveMutation.mutate({
-      visitId: currentVisit.opdVisit.id,
-      patientId: currentPatient.id,
+      visitId: currentVisit.opdVisit.id!,
+      patientId: currentPatient.id!,
       items: [{
         medicationName: formData.medicationName.trim(),
         dosage: formData.dosage,

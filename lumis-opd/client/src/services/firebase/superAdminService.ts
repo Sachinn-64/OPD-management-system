@@ -1,6 +1,6 @@
 import { FirestoreService, COLLECTIONS, Clinic } from '../../lib/firebase';
 import { db } from '../../config/firebase';
-import { collection, query, where, getDocs, orderBy, Timestamp, limit as firestoreLimit, doc, getDoc } from 'firebase/firestore';
+import { collection, where, getDocs, orderBy, Timestamp, limit as firestoreLimit } from 'firebase/firestore';
 import type { QueryConstraint } from 'firebase/firestore';
 
 interface ClinicStats {
@@ -45,15 +45,15 @@ class SuperAdminService {
    */
   async getAllClinics(options?: { limit?: number; status?: 'active' | 'inactive' | 'trial' }): Promise<Clinic[]> {
     const constraints: QueryConstraint[] = [orderBy('createdAt', 'desc')];
-    
+
     if (options?.status) {
       constraints.unshift(where('subscriptionStatus', '==', options.status));
     }
-    
+
     if (options?.limit) {
       constraints.push(firestoreLimit(options.limit));
     }
-    
+
     return this.clinicService.getAll(constraints);
   }
 
@@ -64,25 +64,25 @@ class SuperAdminService {
     const clinic = await this.clinicService.getById(clinicId);
     if (!clinic) return null;
 
-    // Count users
-    const usersRef = collection(db, COLLECTIONS.USERS(clinicId));
+    // Count users (filter by clinicId since we use flat collections)
+    const usersRef = collection(db, COLLECTIONS.USERS);
     const usersSnapshot = await getDocs(usersRef);
-    const totalUsers = usersSnapshot.size;
+    const totalUsers = usersSnapshot.docs.filter(d => d.data().clinicId === clinicId).length;
 
-    // Count doctors
-    const doctorsRef = collection(db, COLLECTIONS.DOCTORS(clinicId));
+    // Count doctors (filter by clinicId since we use flat collections)
+    const doctorsRef = collection(db, COLLECTIONS.DOCTORS);
     const doctorsSnapshot = await getDocs(doctorsRef);
-    const totalDoctors = doctorsSnapshot.size;
+    const totalDoctors = doctorsSnapshot.docs.filter(d => d.data().clinicId === clinicId).length;
 
-    // Count patients
-    const patientsRef = collection(db, COLLECTIONS.PATIENTS(clinicId));
+    // Count patients (filter by clinicId since we use flat collections)
+    const patientsRef = collection(db, COLLECTIONS.PATIENTS);
     const patientsSnapshot = await getDocs(patientsRef);
-    const totalPatients = patientsSnapshot.size;
+    const totalPatients = patientsSnapshot.docs.filter(d => d.data().clinicId === clinicId).length;
 
-    // Count appointments
-    const appointmentsRef = collection(db, COLLECTIONS.APPOINTMENTS(clinicId));
+    // Count appointments (filter by clinicId since we use flat collections)
+    const appointmentsRef = collection(db, COLLECTIONS.APPOINTMENTS);
     const appointmentsSnapshot = await getDocs(appointmentsRef);
-    const totalAppointments = appointmentsSnapshot.size;
+    const totalAppointments = appointmentsSnapshot.docs.filter(d => d.data().clinicId === clinicId).length;
 
     return {
       clinicId: clinic.id!,
@@ -194,7 +194,7 @@ class SuperAdminService {
     for (const clinic of expiredClinics) {
       await this.clinicService.update(clinic.id!, {
         subscriptionStatus: 'inactive',
-        updatedAt: Timestamp.now(),
+        updatedAt: Timestamp.now() as any,
       });
       deactivatedIds.push(clinic.id!);
     }
@@ -225,7 +225,7 @@ class SuperAdminService {
   async searchClinics(searchTerm: string): Promise<Clinic[]> {
     const allClinics = await this.getAllClinics();
     const term = searchTerm.toLowerCase();
-    
+
     return allClinics.filter(clinic =>
       clinic.name.toLowerCase().includes(term) ||
       clinic.email.toLowerCase().includes(term) ||
@@ -237,17 +237,20 @@ class SuperAdminService {
    * Get clinic users count by role
    */
   async getClinicUsersByRole(clinicId: string): Promise<{ admins: number; doctors: number; receptionists: number }> {
-    const usersRef = collection(db, COLLECTIONS.USERS(clinicId));
+    const usersRef = collection(db, COLLECTIONS.USERS);
     const usersSnapshot = await getDocs(usersRef);
-    
+
     const counts = {
       admins: 0,
       doctors: 0,
       receptionists: 0,
     };
 
-    usersSnapshot.forEach(doc => {
-      const data = doc.data();
+    // Filter by clinicId since we use flat collections
+    usersSnapshot.docs.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data.clinicId !== clinicId) return;
+
       if (data.role === 'admin') counts.admins++;
       else if (data.role === 'doctor') counts.doctors++;
       else if (data.role === 'receptionist') counts.receptionists++;
@@ -263,7 +266,7 @@ class SuperAdminService {
     // This would typically fetch from an activity log collection
     // For now, return recent clinics as activity
     const recentClinics = await this.getAllClinics({ limit });
-    
+
     return recentClinics.map(clinic => ({
       type: 'clinic_registered',
       clinicId: clinic.id,

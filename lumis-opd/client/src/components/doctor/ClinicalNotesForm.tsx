@@ -17,7 +17,7 @@ export const ClinicalNotesForm: React.FC = () => {
   // Fetch existing notes
   const { data: existingNotes } = useQuery({
     queryKey: ['clinicalNotes', currentVisit?.opdVisit?.id],
-    queryFn: () => consultationService.getNotesByVisit(currentVisit!.opdVisit!.id),
+    queryFn: () => consultationService.getNotesByVisit(currentVisit!.opdVisit!.id!),
     enabled: !!currentVisit?.opdVisit?.id,
   });
 
@@ -25,18 +25,19 @@ export const ClinicalNotesForm: React.FC = () => {
   useEffect(() => {
     if (existingNotes && existingNotes.length > 0) {
       existingNotes.forEach((note) => {
+        const noteContent = note.noteText || note.content || '';
         switch (note.noteType) {
           case 'CHIEF_COMPLAINT':
-            setChiefComplaint(note.content);
+            setChiefComplaint(noteContent);
             break;
           case 'EXAMINATION':
-            setExaminationFindings(note.content);
+            setExaminationFindings(noteContent);
             break;
           case 'ASSESSMENT_PLAN':
-            setAssessmentPlan(note.content);
+            setAssessmentPlan(noteContent);
             break;
           case 'FOLLOW_UP':
-            setFollowUpPlan(note.content);
+            setFollowUpPlan(noteContent);
             break;
         }
       });
@@ -56,11 +57,10 @@ export const ClinicalNotesForm: React.FC = () => {
     if (!currentVisit?.opdVisit?.id || !currentPatient || !content.trim()) return;
 
     saveMutation.mutate({
-      visitId: currentVisit.opdVisit.id,
-      patientId: currentPatient.id,
+      visitId: currentVisit.opdVisit.id!,
+      patientId: currentPatient.id!,
       noteType,
-      content: content.trim(),
-      isVoiceRecorded: true,
+      noteText: content.trim(),
     });
   };
 

@@ -34,9 +34,10 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ clinic
   // Update subscription mutation
   const updateSubscriptionMutation = useMutation({
     mutationFn: () =>
-      superAdminService.updateSubscription(clinic.id!, {
-        subscriptionStatus: newStatus,
-        subscriptionEndDate: new Date(endDate).toISOString(),
+      superAdminService.updateSubscription({
+        clinicId: clinic.id!,
+        status: newStatus,
+        endDate: new Date(endDate),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-clinics'] });
@@ -48,7 +49,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ clinic
 
   // Activate clinic mutation (convert trial to active)
   const activateClinicMutation = useMutation({
-    mutationFn: () => superAdminService.activateClinic(clinic.id!),
+    mutationFn: () => superAdminService.activateClinic(clinic.id!, 12, 10000), // 12 months, ₹10,000
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['all-clinics'] });
       queryClient.invalidateQueries({ queryKey: ['platform-analytics'] });
@@ -78,13 +79,12 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ clinic
           <div className="flex items-center justify-between">
             <span className="text-gray-700">Status:</span>
             <span
-              className={`px-3 py-1 text-sm font-semibold rounded-full ${
-                clinic.subscriptionStatus === 'active'
-                  ? 'bg-green-100 text-green-800'
-                  : clinic.subscriptionStatus === 'trial'
+              className={`px-3 py-1 text-sm font-semibold rounded-full ${clinic.subscriptionStatus === 'active'
+                ? 'bg-green-100 text-green-800'
+                : clinic.subscriptionStatus === 'trial'
                   ? 'bg-yellow-100 text-yellow-800'
                   : 'bg-red-100 text-red-800'
-              }`}
+                }`}
             >
               {clinic.subscriptionStatus.toUpperCase()}
             </span>
@@ -107,9 +107,8 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ clinic
           <div className="flex items-center justify-between">
             <span className="text-gray-700">Days Remaining:</span>
             <span
-              className={`font-semibold ${
-                isExpired ? 'text-red-600' : isExpiringSoon ? 'text-yellow-600' : 'text-green-600'
-              }`}
+              className={`font-semibold ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-yellow-600' : 'text-green-600'
+                }`}
             >
               {isExpired ? 'EXPIRED' : isExpiringSoon ? `${daysRemaining} days (expiring soon)` : `${daysRemaining} days`}
             </span>
@@ -131,7 +130,7 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ clinic
               <AlertCircle className="w-5 h-5 text-yellow-600 mr-2 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-yellow-800">
                 <p className="font-semibold">Subscription Expiring Soon</p>
-                <p>Renew before {new Date(clinic.subscriptionEndDate).toLocaleDateString()} to avoid interruption.</p>
+                <p>Renew before {clinic.subscriptionEndDate ? new Date(clinic.subscriptionEndDate).toLocaleDateString() : 'soon'} to avoid interruption.</p>
               </div>
             </div>
           )}
@@ -167,11 +166,10 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ clinic
             <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => setNewStatus('trial')}
-                className={`p-3 text-center rounded-lg border-2 transition-colors ${
-                  newStatus === 'trial'
-                    ? 'border-yellow-500 bg-yellow-50 text-yellow-900'
-                    : 'border-gray-200 hover:border-yellow-300'
-                }`}
+                className={`p-3 text-center rounded-lg border-2 transition-colors ${newStatus === 'trial'
+                  ? 'border-yellow-500 bg-yellow-50 text-yellow-900'
+                  : 'border-gray-200 hover:border-yellow-300'
+                  }`}
               >
                 <div className="font-semibold">Trial</div>
                 <div className="text-xs text-gray-500">30 days</div>
@@ -179,11 +177,10 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ clinic
 
               <button
                 onClick={() => setNewStatus('active')}
-                className={`p-3 text-center rounded-lg border-2 transition-colors ${
-                  newStatus === 'active'
-                    ? 'border-green-500 bg-green-50 text-green-900'
-                    : 'border-gray-200 hover:border-green-300'
-                }`}
+                className={`p-3 text-center rounded-lg border-2 transition-colors ${newStatus === 'active'
+                  ? 'border-green-500 bg-green-50 text-green-900'
+                  : 'border-gray-200 hover:border-green-300'
+                  }`}
               >
                 <div className="font-semibold">Active</div>
                 <div className="text-xs text-gray-500">Paid</div>
@@ -191,11 +188,10 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ clinic
 
               <button
                 onClick={() => setNewStatus('inactive')}
-                className={`p-3 text-center rounded-lg border-2 transition-colors ${
-                  newStatus === 'inactive'
-                    ? 'border-red-500 bg-red-50 text-red-900'
-                    : 'border-gray-200 hover:border-red-300'
-                }`}
+                className={`p-3 text-center rounded-lg border-2 transition-colors ${newStatus === 'inactive'
+                  ? 'border-red-500 bg-red-50 text-red-900'
+                  : 'border-gray-200 hover:border-red-300'
+                  }`}
               >
                 <div className="font-semibold">Inactive</div>
                 <div className="text-xs text-gray-500">Suspended</div>
