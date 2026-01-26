@@ -96,19 +96,83 @@ class ConsultationService {
   }
 
   // Get patient visits by doctor (for patient history in consultation)
-  async getPatientVisitsByDoctor(patientId: string, doctorId?: string): Promise<Visit[]> {
-    if (doctorId) {
-      return getService().getAll([
-        where('patientId', '==', patientId),
-        where('doctorId', '==', doctorId),
-        orderBy('visitDate', 'desc'),
-      ]).catch(() => []);
+  async getPatientVisitsByDoctor(patientId: string, doctorId?: string): Promise<any[]> {
+    try {
+      console.log('=== getPatientVisitsByDoctor ===');
+      console.log('Patient ID:', patientId);
+      console.log('Doctor ID:', doctorId);
+      
+      // Simple query to avoid index issues - just filter by patientId
+      let visits = await getService().query('patientId', '==', patientId);
+      
+      console.log('Raw visits found:', visits.length);
+      
+      // Filter by doctorId in memory if provided
+      if (doctorId) {
+        visits = visits.filter(v => v.doctorId === doctorId);
+        console.log('After doctorId filter:', visits.length);
+      }
+      
+      // Sort by visitDate descending in memory
+      visits.sort((a, b) => {
+        const dateA = new Date(a.visitDate || '');
+        const dateB = new Date(b.visitDate || '');
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      console.log('Sorted visits:', visits.length);
+      
+      // For each visit, fetch the associated appointment
+      const visitsWithAppointments = await Promise.all(
+        visits.map(async (visit) => {
+          try {
+            let appointmentData = null;
+            
+            // Fetch appointment if appointmentId exists
+            if (visit.appointmentId) {
+              const { db } = await import('../config/firebase');
+              const { doc: firestoreDoc, getDoc } = await import('firebase/firestore');
+              const appointmentRef = firestoreDoc(db, COLLECTIONS.APPOINTMENTS, visit.appointmentId);
+              const appointmentSnap = await getDoc(appointmentRef);
+              
+              if (appointmentSnap.exists()) {
+                appointmentData = { id: appointmentSnap.id, ...appointmentSnap.data() };
+              }
+            }
+            
+            // Return in appointment format with opdVisit embedded
+            return {
+              id: visit.appointmentId || visit.id,
+              appointmentDate: visit.visitDate,
+              appointmentTime: appointmentData?.appointmentTime || '00:00',
+              appointmentStatus: appointmentData?.status,
+              patientId: visit.patientId,
+              doctorId: visit.doctorId,
+              opdVisit: visit, // Embed the full visit data
+            };
+          } catch (err) {
+            console.error('Error fetching appointment for visit:', visit.id, err);
+            // Return visit data in appointment format even if appointment fetch fails
+            return {
+              id: visit.id,
+              appointmentDate: visit.visitDate,
+              appointmentTime: '00:00',
+              patientId: visit.patientId,
+              doctorId: visit.doctorId,
+              opdVisit: visit,
+            };
+          }
+        })
+      );
+      
+      console.log('Returning visits with appointments:', visitsWithAppointments.length);
+      console.log('Sample visit:', visitsWithAppointments[0]);
+      return visitsWithAppointments;
+    } catch (err) {
+      console.error('!!! Error in getPatientVisitsByDoctor:', err);
+      console.error('Error details:', err);
+      return [];
     }
-    // If no doctorId, get all visits for patient
-    return getService().getAll([
-      where('patientId', '==', patientId),
-      orderBy('visitDate', 'desc'),
-    ]).catch(() => []);
   }
 
   // Get vitals by visit - vitals are embedded in visit document
@@ -476,18 +540,32 @@ class ConsultationService {
   }
 
   // Get prescriptions by patient (legacy - returns prescriptions from all patient visits)
-  async getPrescriptionsByPatient(patientId: string, page: number = 1, limit: number = 10): Promise<{ data: Prescription[]; total: number }> {
-    const visits = await this.getPatientVisitsByDoctor(patientId);
+  async getPrescriptionsByPatient(patientId: string, page: number = 1, limit: number = 10, doctorId?: string): Promise<{ data: Prescription[]; total: number }> {
+    const visits = await this.getPatientVisitsByDoctor(patientId, doctorId);
     const allPrescriptions: Prescription[] = [];
     
     for (const visit of visits) {
-      if (visit.prescriptions) {
-        allPrescriptions.push(...visit.prescriptions);
+      // Check if prescriptions exist in opdVisit (the actual visit data)
+      const visitData = visit.opdVisit || visit;
+      if (visitData.prescriptions && Array.isArray(visitData.prescriptions)) {
+        // Flatten prescription items from all prescriptions in this visit
+        visitData.prescriptions.forEach((prescription: any) => {
+          if (prescription.items && prescription.items.length > 0) {
+            allPrescriptions.push({
+              ...prescription,
+              visitDate: visitData.visitDate || visit.appointmentDate,
+            });
+          }
+        });
       }
     }
     
-    // Sort by prescribedAt descending
-    allPrescriptions.sort((a, b) => new Date(b.prescribedAt).getTime() - new Date(a.prescribedAt).getTime());
+    // Sort by prescribedAt or visitDate descending
+    allPrescriptions.sort((a, b) => {
+      const dateA = new Date((a as any).prescribedAt || (a as any).visitDate || '').getTime();
+      const dateB = new Date((b as any).prescribedAt || (b as any).visitDate || '').getTime();
+      return dateB - dateA;
+    });
     
     // Apply pagination
     const startIndex = (page - 1) * limit;

@@ -224,6 +224,26 @@ export const ConsultationPanel: React.FC = () => {
   const [isSavingEdits, setIsSavingEdits] = useState(false);
   const [dataRefreshTrigger, setDataRefreshTrigger] = useState(0); // Trigger to reload data
 
+  // Function to apply prescription from previous visit
+  const applyPreviousPrescription = (prescription: any) => {
+    if (!prescription?.items || prescription.items.length === 0) return;
+
+    // Map prescription items from stored format to current form format
+    const mappedItems = prescription.items.map((item: any, index: number) => ({
+      id: `prev-${Date.now()}-${index}`,
+      drugName: item.medicationName || item.drugName || '',
+      dosage: item.dosage || '',
+      frequency: item.frequency || '',
+      timing: item.beforeAfterFood || item.timing || 'After Food',
+      durationDays: parseInt(item.duration?.match(/\d+/)?.[0] || '30') || 30,
+      instructions: item.instructions || '',
+    }));
+
+    setPrescriptionData(mappedItems);
+    setActiveTab('prescription');
+    alert(`Applied ${mappedItems.length} prescription items to current consultation`);
+  };
+
   // Print prescription state
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printLanguage, setPrintLanguage] = useState<'en' | 'hi' | 'mr' | 'kn'>('en');
@@ -274,7 +294,7 @@ export const ConsultationPanel: React.FC = () => {
 
       // Only load existing data if it's today's visit and has been started/completed
       const visitStatus = currentVisit.opdVisit.visitStatus;
-      const shouldLoadData = isTodayVisit && (visitStatus === 'COMPLETED' || visitStatus === 'IN_PROGRESS');
+      const shouldLoadData = isTodayVisit && (visitStatus === 'COMPLETED');
 
       console.log('Load data check:', { visitId, visitDate: visitDate.toDateString(), today: today.toDateString(), isTodayVisit, visitStatus, shouldLoadData });
 
@@ -529,7 +549,7 @@ export const ConsultationPanel: React.FC = () => {
             visitId,
             patientId,
             diagnosisName: diagnosis.diagnosisText,
-            diagnosisType: diagnosis.type === 'PROVISIONAL' ? 'SECONDARY' : diagnosis.type === 'FINAL' ? 'PRIMARY' : 'DIFFERENTIAL',
+            diagnosisType: diagnosis.type,
             diagnosisCode: diagnosis.icdCode,
           });
         }
@@ -617,6 +637,46 @@ export const ConsultationPanel: React.FC = () => {
     setIsDownloadingPdf(true);
 
     try {
+      // Fetch fresh data from the visit (in case form state was cleared)
+      const visitId = currentVisit.opdVisit.id;
+      const [histories, notes, diagnoses, prescriptions, visit] = await Promise.all([
+        consultationService.getHistoryByVisit(visitId).catch(() => []),
+        consultationService.getNotesByVisit(visitId).catch(() => []),
+        consultationService.getDiagnosisByVisit(visitId).catch(() => []),
+        consultationService.getPrescriptionsByVisit(visitId).catch(() => []),
+        consultationService.getById(visitId),
+      ]);
+
+      // Parse the fetched data
+      const chiefComplaint = histories.find((h: any) => h.historyType === 'CHIEF_COMPLAINT')?.description || notesData.chiefComplaint;
+      const examination = notes.find((n: any) => n.noteType === 'EXAMINATION')?.noteText || notesData.examination;
+      const assessment = notes.find((n: any) => n.noteType === 'ASSESSMENT')?.noteText || diagnosisData.assessment;
+      const followUp = notes.find((n: any) => n.noteType === 'FOLLOW_UP')?.noteText || diagnosisData.followUp;
+      
+      const diagnosisList = diagnoses.length > 0 
+        ? diagnoses.map((d: any) => ({
+            diagnosisText: d.diagnosisText || d.diagnosisName,
+            icdCode: d.icdCode || d.diagnosisCode,
+            type: d.diagnosisType
+          }))
+        : diagnosisData.diagnoses;
+
+      const prescriptionItems = prescriptions.length > 0 && prescriptions[0].items
+        ? prescriptions[0].items.map((item: any) => ({
+            drugName: item.drugName || item.medicationName,
+            dosage: item.dosage,
+            frequency: item.frequency,
+            durationDays: item.durationDays || parseInt(item.duration) || 0,
+            instructions: item.instructions
+          }))
+        : prescriptionData;
+
+      const advice = {
+        generalAdvice: visit?.generalAdvice || adviceData.generalAdvice,
+        dietaryAdvice: visit?.dietaryAdvice || adviceData.dietaryAdvice,
+        activityAdvice: visit?.activityAdvice || adviceData.activityAdvice,
+      };
+
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 15;
@@ -680,19 +740,19 @@ export const ConsultationPanel: React.FC = () => {
       yPos += 10;
 
       // Chief Complaint
-      if (notesData.chiefComplaint) {
-        addSection('Chief Complaint:', notesData.chiefComplaint);
+      if (chiefComplaint) {
+        addSection('Chief Complaint:', chiefComplaint);
       }
 
       // Examination
-      if (notesData.examination) {
-        addSection('Examination:', notesData.examination);
+      if (examination) {
+        addSection('Examination:', examination);
       }
 
       // Vitals
-      const visit = currentVisit.opdVisit;
-      if (visit?.vitals && visit.vitals.length > 0) {
-        const vitals = visit.vitals[0];
+      const visitVitals = visit?.vitals || currentVisit.opdVisit?.vitals;
+      if (visitVitals && visitVitals.length > 0) {
+        const vitals = visitVitals[0];
         const vitalsText = [
           vitals.bloodPressureSystolic && vitals.bloodPressureDiastolic ? `BP: ${vitals.bloodPressureSystolic}/${vitals.bloodPressureDiastolic} mmHg` : '',
           vitals.pulseRate ? `Pulse: ${vitals.pulseRate} bpm` : '',
@@ -707,21 +767,21 @@ export const ConsultationPanel: React.FC = () => {
       }
 
       // Diagnosis
-      if (diagnosisData.diagnoses && diagnosisData.diagnoses.length > 0) {
-        const diagnosisText = diagnosisData.diagnoses.map(d =>
+      if (diagnosisList && diagnosisList.length > 0) {
+        const diagnosisText = diagnosisList.map((d: any) =>
           `${d.diagnosisText}${d.icdCode ? ` (${d.icdCode})` : ''} - ${d.type}`
         );
         addSection('Diagnosis:', diagnosisText);
       }
 
       // Assessment
-      if (diagnosisData.assessment) {
-        addSection('Assessment:', diagnosisData.assessment);
+      if (assessment) {
+        addSection('Assessment:', assessment);
       }
 
       // Prescription
-      if (prescriptionData && prescriptionData.length > 0) {
-        const rxText = prescriptionData.filter(p => p.drugName).map((p, i) =>
+      if (prescriptionItems && prescriptionItems.length > 0) {
+        const rxText = prescriptionItems.filter((p: any) => p.drugName).map((p: any, i: number) =>
           `${i + 1}. ${p.drugName} - ${p.dosage || ''} - ${p.frequency} - ${p.durationDays} days${p.instructions ? ` (${p.instructions})` : ''}`
         );
         addSection('Prescription:', rxText);
@@ -729,9 +789,9 @@ export const ConsultationPanel: React.FC = () => {
 
       // Advice
       const adviceItems = [
-        adviceData.generalAdvice ? `General: ${adviceData.generalAdvice}` : '',
-        adviceData.dietaryAdvice ? `Diet: ${adviceData.dietaryAdvice}` : '',
-        adviceData.activityAdvice ? `Activity: ${adviceData.activityAdvice}` : '',
+        advice.generalAdvice ? `General: ${advice.generalAdvice}` : '',
+        advice.dietaryAdvice ? `Diet: ${advice.dietaryAdvice}` : '',
+        advice.activityAdvice ? `Activity: ${advice.activityAdvice}` : '',
       ].filter(Boolean);
 
       if (adviceItems.length > 0) {
@@ -739,8 +799,8 @@ export const ConsultationPanel: React.FC = () => {
       }
 
       // Follow-up
-      if (diagnosisData.followUp) {
-        addSection('Follow-up:', diagnosisData.followUp);
+      if (followUp) {
+        addSection('Follow-up:', followUp);
       }
 
       // Footer
@@ -1389,6 +1449,7 @@ export const ConsultationPanel: React.FC = () => {
                   <PrescriptionSection
                     visitId={currentVisit.opdVisit?.id || ''}
                     patientId={currentPatient?.id}
+                    doctorId={doctorProfile?.id}
                     initialItems={prescriptionData}
                     assessment={diagnosisData.assessment}
                     followUp={diagnosisData.followUp}
@@ -1673,18 +1734,32 @@ export const ConsultationPanel: React.FC = () => {
                   {/* Prescriptions */}
                   {selectedRecordVisit.opdVisit?.prescriptions && selectedRecordVisit.opdVisit.prescriptions.length > 0 && (
                     <div className="bg-white border border-gray-200 rounded-xl p-4">
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <Pill className="w-5 h-5 text-green-500" />
-                        Prescriptions
-                      </h4>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                          <Pill className="w-5 h-5 text-green-500" />
+                          Prescriptions
+                        </h4>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            applyPreviousPrescription(selectedRecordVisit.opdVisit.prescriptions[0]);
+                            setShowPreviousRecords(false);
+                          }}
+                          className="text-xs"
+                        >
+                          <FileText className="w-3 h-3 mr-1" />
+                          Apply to Current
+                        </Button>
+                      </div>
                       <div className="space-y-2">
                         {selectedRecordVisit.opdVisit.prescriptions.flatMap((prescription: any) =>
                           prescription.items?.map((item: any, idx: number) => (
                             <div key={`${prescription.id}-${idx}`} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
                               <div>
-                                <p className="font-medium text-gray-900">{item.drugName}</p>
+                                <p className="font-medium text-gray-900">{item.medicationName || item.drugName}</p>
                                 <p className="text-sm text-gray-600">
-                                  {item.dosage} • {item.frequency} • {item.durationDays} days
+                                  {item.dosage} • {item.frequency} • {item.duration || `${item.durationDays} days`}
                                 </p>
                                 {item.instructions && (
                                   <p className="text-xs text-gray-500 mt-1">{item.instructions}</p>

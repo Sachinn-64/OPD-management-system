@@ -95,6 +95,45 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
     const calculatedBSA = calculateBSA();
     const calculatedeGFR = calculateeGFR();
 
+    // Build details array for all vitals
+    const details: any[] = [];
+    
+    if (formData.temperature) {
+      details.push({ vitalName: 'Temperature', vitalValue: parseFloat(formData.temperature), vitalUnit: '°F' });
+    }
+    if (formData.bloodPressureSystolic && formData.bloodPressureDiastolic) {
+      details.push({ vitalName: 'Blood Pressure', vitalValue: `${formData.bloodPressureSystolic}/${formData.bloodPressureDiastolic}`, vitalUnit: 'mmHg' });
+      details.push({ vitalName: 'BP Systolic', vitalValue: parseInt(formData.bloodPressureSystolic), vitalUnit: 'mmHg' });
+      details.push({ vitalName: 'BP Diastolic', vitalValue: parseInt(formData.bloodPressureDiastolic), vitalUnit: 'mmHg' });
+    }
+    if (formData.heartRate) {
+      details.push({ vitalName: 'Heart Rate', vitalValue: parseInt(formData.heartRate), vitalUnit: 'bpm' });
+    }
+    if (formData.respiratoryRate) {
+      details.push({ vitalName: 'Respiratory Rate', vitalValue: parseInt(formData.respiratoryRate), vitalUnit: '/min' });
+    }
+    if (formData.oxygenSaturation) {
+      details.push({ vitalName: 'Oxygen Saturation', vitalValue: parseFloat(formData.oxygenSaturation), vitalUnit: '%' });
+    }
+    if (formData.weight) {
+      details.push({ vitalName: 'Weight', vitalValue: parseFloat(formData.weight), vitalUnit: 'kg' });
+    }
+    if (formData.height) {
+      details.push({ vitalName: 'Height', vitalValue: parseFloat(formData.height), vitalUnit: 'cm' });
+    }
+    if (calculatedBMI !== '-') {
+      details.push({ vitalName: 'BMI', vitalValue: parseFloat(calculatedBMI), vitalUnit: 'kg/m²' });
+    }
+    if (calculatedBSA !== '-') {
+      details.push({ vitalName: 'BSA', vitalValue: parseFloat(calculatedBSA), vitalUnit: 'm²' });
+    }
+    if (formData.serumCreatinine) {
+      details.push({ vitalName: 'Serum Creatinine', vitalValue: parseFloat(formData.serumCreatinine), vitalUnit: 'mg/dL' });
+    }
+    if (calculatedeGFR !== '-') {
+      details.push({ vitalName: 'eGFR', vitalValue: parseFloat(calculatedeGFR), vitalUnit: 'mL/min/1.73m²' });
+    }
+
     const vitalData = {
       patientId: currentPatient.id,
       visitId: currentVisit.opdVisit.id,
@@ -102,15 +141,17 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
       bloodPressureSystolic: formData.bloodPressureSystolic ? parseInt(formData.bloodPressureSystolic) : undefined,
       bloodPressureDiastolic: formData.bloodPressureDiastolic ? parseInt(formData.bloodPressureDiastolic) : undefined,
       heartRate: formData.heartRate ? parseInt(formData.heartRate) : undefined,
+      pulseRate: formData.heartRate ? parseInt(formData.heartRate) : undefined, // Alias for heartRate
       respiratoryRate: formData.respiratoryRate ? parseInt(formData.respiratoryRate) : undefined,
       oxygenSaturation: formData.oxygenSaturation ? parseFloat(formData.oxygenSaturation) : undefined,
+      spo2: formData.oxygenSaturation ? parseFloat(formData.oxygenSaturation) : undefined, // Alias for oxygenSaturation
       weight: formData.weight ? parseFloat(formData.weight) : undefined,
       height: formData.height ? parseFloat(formData.height) : undefined,
-      serumCreatinine: formData.serumCreatinine ? parseFloat(formData.serumCreatinine) : undefined,
       bmi: calculatedBMI !== '-' ? parseFloat(calculatedBMI) : undefined,
       bsa: calculatedBSA !== '-' ? parseFloat(calculatedBSA) : undefined,
       eGFR: calculatedeGFR !== '-' ? parseFloat(calculatedeGFR) : undefined,
       notes: formData.notes || undefined,
+      details, // Include the details array for display components
     };
 
     saveMutation.mutate({

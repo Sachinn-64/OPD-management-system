@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Search, User, Calendar, Download, FileText, X, Eye } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
@@ -52,36 +53,104 @@ export const PatientHistory: React.FC = () => {
 
   const downloadVisitReport = async (visitId: string, patientUhid: string, visitDate: string) => {
     try {
-      const response = await consultationService.generatePDF(visitId);
-      const blob = new Blob([response], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
+      // Import jsPDF dynamically
+      const { jsPDF } = await import('jspdf');
       
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `consultation_${patientUhid}_${visitDate}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (error: any) {
-      console.error('Error downloading report:', error);
-      // Handle the case where the endpoint returns 501 (Not Implemented)
-      if (error.response?.status === 501) {
-        // Try to read the error message from blob response
-        if (error.response.data instanceof Blob) {
-          try {
-            const text = await error.response.data.text();
-            const json = JSON.parse(text);
-            alert(json.message || 'PDF generation is not yet implemented.');
-          } catch {
-            alert('PDF generation is not yet implemented. You can use your browser\'s print function (Ctrl+P / Cmd+P) to save as PDF.');
-          }
-        } else {
-          alert(error.response?.data?.message || 'PDF generation is not yet implemented. Please use the print functionality from the consultation panel.');
-        }
-      } else {
-        alert('Failed to download report. Please try again later.');
+      // Fetch visit details
+      const visit = await consultationService.getById(visitId);
+      if (!visit) {
+        alert('Visit not found');
+        return;
       }
+
+      // Get patient details
+      const patient = selectedPatient?.patient;
+      if (!patient) {
+        alert('Patient information not available');
+        return;
+      }
+
+      // Generate PDF
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 15;
+      let yPos = 20;
+
+      // Helper function for centered text
+      const centerText = (text: string, y: number, fontSize: number = 12) => {
+        doc.setFontSize(fontSize);
+        const textWidth = doc.getTextWidth(text);
+        doc.text(text, (pageWidth - textWidth) / 2, y);
+      };
+
+      // Header
+      doc.setFont('helvetica', 'bold');
+      centerText('LUMIS HEALTHCARE', yPos, 16);
+      yPos += 8;
+      doc.setFont('helvetica', 'normal');
+      centerText('Consultation Report', yPos, 12);
+      yPos += 10;
+
+      // Line
+      doc.setDrawColor(0, 150, 100);
+      doc.line(margin, yPos, pageWidth - margin, yPos);
+      yPos += 10;
+
+      // Patient Info
+      doc.setFontSize(10);
+      doc.text(`Patient: ${patient.firstName} ${patient.lastName}`, margin, yPos);
+      doc.text(`UHID: ${patientUhid}`, pageWidth / 2, yPos);
+      yPos += 6;
+      doc.text(`Date: ${new Date(visitDate).toLocaleDateString()}`, margin, yPos);
+      const age = calculateAge(patient.dateOfBirth);
+      doc.text(`Age/Gender: ${age}y / ${patient.gender || 'N/A'}`, pageWidth / 2, yPos);
+      yPos += 10;
+
+      // Add visit data
+      const addSection = (title: string, content: string) => {
+        if (!content) return;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text(title, margin, yPos);
+        yPos += 6;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const lines = doc.splitTextToSize(content, pageWidth - 2 * margin);
+        doc.text(lines, margin, yPos);
+        yPos += lines.length * 5 + 8;
+      };
+
+      // Add clinical data
+      if (visit.histories?.length > 0) {
+        const chiefComplaint = visit.histories.find(h => h.historyType === 'CHIEF_COMPLAINT');
+        if (chiefComplaint) addSection('Chief Complaint:', chiefComplaint.description || '');
+      }
+
+      if (visit.notes?.length > 0) {
+        const examination = visit.notes.find(n => n.noteType === 'EXAMINATION');
+        if (examination) addSection('Examination:', examination.noteText || '');
+      }
+
+      if (visit.diagnoses?.length > 0) {
+        const diagnosisText = visit.diagnoses.map(d => `${d.diagnosisType}: ${d.diagnosisText}`).join('\n');
+        addSection('Diagnosis:', diagnosisText);
+      }
+
+      if (visit.prescriptions?.length > 0 && visit.prescriptions[0].items?.length > 0) {
+        const prescText = visit.prescriptions[0].items.map((item: any) => 
+          `${item.medicationName} - ${item.dosage || ''} - ${item.frequency} - ${item.duration}`
+        ).join('\n');
+        addSection('Prescription:', prescText);
+      }
+
+      if (visit.generalAdvice) addSection('General Advice:', visit.generalAdvice);
+      if (visit.followUpPlan) addSection('Follow-up:', visit.followUpPlan);
+
+      // Save PDF
+      doc.save(`consultation_${patientUhid}_${visitDate}.pdf`);
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF report. Please try again.');
     }
   };
 
@@ -374,10 +443,10 @@ export const PatientHistory: React.FC = () => {
       </div>
 
       {/* Visit Details Modal */}
-      {showVisitModal && selectedVisit && (
+      {showVisitModal && selectedVisit && createPortal(
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-9999 p-4"
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowVisitModal(false);
@@ -385,8 +454,8 @@ export const PatientHistory: React.FC = () => {
             }
           }}
         >
-          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col relative z-10000">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between z-10">
+          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900">Visit Details</h3>
               <button
                 onClick={() => {
@@ -643,7 +712,8 @@ export const PatientHistory: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

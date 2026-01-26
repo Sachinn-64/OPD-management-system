@@ -16,6 +16,7 @@ interface PrescriptionItem {
 interface PrescriptionSectionProps {
   visitId: string;
   patientId?: string;
+  doctorId?: string;
   initialItems?: PrescriptionItem[];
   onSave?: (items: PrescriptionItem[]) => void;
   assessment?: string;
@@ -25,7 +26,7 @@ interface PrescriptionSectionProps {
   activityAdvice?: string;
 }
 
-export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitId: _visitId, patientId, initialItems, onSave, assessment, followUp, generalAdvice, dietaryAdvice, activityAdvice }) => {
+export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitId: _visitId, patientId, doctorId, initialItems, onSave, assessment, followUp, generalAdvice, dietaryAdvice, activityAdvice }) => {
   const [items, setItems] = useState<PrescriptionItem[]>(
     initialItems || [{ id: Date.now().toString(), drugName: '', dosage: '', frequency: '', timing: '', durationDays: 30 }]
   );
@@ -110,9 +111,10 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
     if (!patientId) return;
     setIsLoadingPrevious(true);
     try {
-      const response = await consultationService.getPrescriptionsByPatient(patientId, previousPage, previousLimit);
+      const response = await consultationService.getPrescriptionsByPatient(patientId, previousPage, previousLimit, doctorId);
       // Response may be array or object with data property - handle both
       const prescrList = Array.isArray(response) ? response : ((response as any)?.data || []);
+      console.log('Previous prescriptions loaded:', prescrList);
       setPreviousPrescriptions(prescrList);
     } catch (error) {
       console.error('Failed to load previous prescriptions:', error);
@@ -135,11 +137,11 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
 
     const mappedItems = prescription.items.map((item: any, index: number) => ({
       id: `prev-${Date.now()}-${index}`,
-      drugName: item.drugName || '',
+      drugName: item.medicationName || item.drugName || '',
       dosage: item.dosage || '',
       frequency: item.frequency || '',
-      timing: item.beforeAfterFood || item.timing || '',
-      durationDays: item.durationDays || 30,
+      timing: item.beforeAfterFood || item.timing || 'After Food',
+      durationDays: item.durationDays || parseInt(item.duration?.match(/\d+/)?.[0] || '30') || 30,
     }));
 
     setItems(mappedItems);
@@ -802,10 +804,10 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                           {prescription.items.map((item: any, idx: number) => (
                             <div key={idx} className="flex items-center gap-2 text-sm text-gray-600">
                               <Pill className="w-3 h-3 text-emerald-500" />
-                              <span>{item.drugName}</span>
+                              <span>{item.medicationName || item.drugName}</span>
                               {item.dosage && <span className="text-gray-400">• {item.dosage}</span>}
                               <span className="text-gray-400">• {item.frequency}</span>
-                              <span className="text-gray-400">• {item.durationDays} days</span>
+                              <span className="text-gray-400">• {item.duration || `${item.durationDays} days`}</span>
                             </div>
                           ))}
                         </div>

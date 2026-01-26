@@ -210,13 +210,65 @@ class DoctorService {
     });
   }
 
-  // Get patient history for a doctor
-  async getPatientHistory(doctorId: string): Promise<Visit[]> {
-    const visitService = new FirestoreService<Visit>(COLLECTIONS.VISITS);
-    return visitService.getAll([
-      where('doctorId', '==', doctorId),
-      orderBy('visitDate', 'desc'),
-    ]).catch(() => []);
+  // Get patient history for a doctor (grouped by patient)
+  async getPatientHistory(doctorId: string): Promise<any[]> {
+    try {
+      console.log('Fetching patient history for doctor:', doctorId);
+      
+      // Query appointments for this doctor instead of visits
+      const appointmentService = new FirestoreService<any>(COLLECTIONS.APPOINTMENTS);
+      const appointments = await appointmentService.query('doctorId', '==', doctorId);
+      
+      console.log('Found appointments:', appointments.length);
+
+      // Group appointments by patient
+      const patientMap = new Map<string, any>();
+      
+      for (const appointment of appointments) {
+        const patientId = appointment.patientId;
+        if (!patientId) {
+          console.log('Appointment without patientId:', appointment.id);
+          continue;
+        }
+
+        if (!patientMap.has(patientId)) {
+          // Fetch patient data
+          const patientRef = doc(db, COLLECTIONS.PATIENTS, patientId);
+          const patientSnap = await getDoc(patientRef);
+          
+          if (patientSnap.exists()) {
+            const patientData = { id: patientSnap.id, ...patientSnap.data() };
+            patientMap.set(patientId, {
+              patientId,
+              patient: patientData,
+              totalVisits: 1,
+              lastVisitDate: appointment.appointmentDate,
+            });
+            console.log('Added patient:', patientData.firstName, patientData.lastName);
+          } else {
+            console.log('Patient not found:', patientId);
+          }
+        } else {
+          // Increment visit count
+          const existing = patientMap.get(patientId);
+          existing.totalVisits += 1;
+          // Update last visit date if this appointment is more recent
+          if (new Date(appointment.appointmentDate) > new Date(existing.lastVisitDate)) {
+            existing.lastVisitDate = appointment.appointmentDate;
+          }
+        }
+      }
+
+      const result = Array.from(patientMap.values()).sort((a, b) => 
+        new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime()
+      );
+      
+      console.log('Returning grouped patients:', result.length);
+      return result;
+    } catch (err) {
+      console.error('Error fetching patient history:', err);
+      return [];
+    }
   }
 
   // Legacy methods for compatibility (ignore clinicId parameter)
