@@ -207,6 +207,20 @@ export interface Visit {
   updatedAt: Date;
 }
 
+export interface Medicine {
+  id?: string;
+  name: string;
+  genericName?: string;
+  category?: string;
+  manufacturer?: string;
+  strength?: string;
+  form?: 'TAB' | 'CAP' | 'SYP' | 'INJ' | 'CREAM' | 'GEL' | 'DROPS' | 'POWDER' | 'OTHER';
+  quantity?: number;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Referral {
   id?: string;
   clinicId: string;
@@ -230,4 +244,5 @@ export const COLLECTIONS = {
   APPOINTMENTS: 'appointments',
   VISITS: 'visits',
   REFERRALS: 'referrals',
+  MEDICINES: 'medicines',
 } as const;

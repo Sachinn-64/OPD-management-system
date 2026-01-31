@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Plus, Trash2, Pill, Save, FolderOpen, X, FileText, Edit2, Loader2, History, Calendar, ChevronLeft, ChevronRight, Printer } from 'lucide-react';
 import { consultationService, PrescriptionTemplate, TemplateItem } from '../../services/consultationService';
 import { PrescriptionPrint } from './PrescriptionPrint';
+import { MedicineAutocomplete } from './MedicineAutocomplete';
 
 interface PrescriptionItem {
   id: string;
@@ -381,12 +382,10 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                 <label className="block text-base font-semibold text-gray-900 mb-2">
                   Drug Name
                 </label>
-                <input
-                  type="text"
+                <MedicineAutocomplete
                   value={item.drugName}
-                  onChange={(e) => updateItem(item.id, 'drugName', e.target.value)}
-                  placeholder="e.g., Paracetamol"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded text-base focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
+                  onChange={(val) => updateItem(item.id, 'drugName', val)}
+                  placeholder="Type medicine name (e.g., Paracetamol)"
                 />
               </div>
 
