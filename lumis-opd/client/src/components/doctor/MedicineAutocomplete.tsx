@@ -49,7 +49,13 @@ export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
         setIsOpen(false);
         return;
       }
-      await medicineService.create({ name: trimmed, quantity: 0 });
+      await medicineService.create({ 
+        name: trimmed, 
+        quantity: 0, 
+        isActive: true,
+        strength: '',
+        form: 'OTHER'
+      });
       addedNamesRef.current.add(key);
       onChange(trimmed);
       setIsOpen(false);

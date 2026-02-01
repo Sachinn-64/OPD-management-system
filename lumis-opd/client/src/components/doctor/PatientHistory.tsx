@@ -382,8 +382,11 @@ export const PatientHistory: React.FC = () => {
                                   // Build compact prescription format: Drug Name - Dosage - Frequency - Duration
                                   const parts: string[] = [];
                                   
-                                  // Drug name
-                                  parts.push(item.drugName);
+                                  // Drug name (check both medicationName and drugName for compatibility)
+                                  const drugName = item.medicationName || item.drugName || '';
+                                  if (drugName) {
+                                    parts.push(drugName);
+                                  }
                                   
                                   // Dosage
                                   if (item.dosage) {
@@ -612,7 +615,10 @@ export const PatientHistory: React.FC = () => {
                         <div className="space-y-2">
                           {prescription.items?.map((item: any, itemIdx: number) => {
                             const parts: string[] = [];
-                            parts.push(item.drugName);
+                            const drugName = item.medicationName || item.drugName || '';
+                            if (drugName) {
+                              parts.push(drugName);
+                            }
                             if (item.dosage) parts.push(item.dosage);
                             if (item.frequency) {
                               let freqDisplay = item.frequency;

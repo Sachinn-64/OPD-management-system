@@ -581,9 +581,11 @@ export const ConsultationPanel: React.FC = () => {
           patientId,
           items: validPrescriptions.map(item => ({
             medicationName: item.drugName,
+            drugName: item.drugName, // Add drugName for backward compatibility
             dosage: item.dosage || '',
             frequency: item.frequency,
-            duration: item.durationDays.toString(),
+            duration: item.durationDays ? `${item.durationDays} days` : '30 days',
+            durationDays: item.durationDays || 30,
             instructions: item.instructions,
             beforeAfterFood: item.timing,
           })),

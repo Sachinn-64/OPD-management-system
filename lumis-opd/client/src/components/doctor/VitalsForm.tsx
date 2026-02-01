@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Save, History } from 'lucide-react';
+import { Save, History, FolderOpen, BookmarkPlus } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useConsultationStore } from '../../store/consultationStore';
 import { consultationService } from '../../services/consultationService';
 import { Button } from '../ui/Button';
@@ -15,6 +16,11 @@ type Props = {
 export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
   const queryClient = useQueryClient();
   const { currentVisit, currentPatient, setVitals } = useConsultationStore();
+
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
+  const [vitalTemplates, setVitalTemplates] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     temperature: '',
@@ -69,6 +75,7 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
     mutationFn: consultationService.createVitals,
     onSuccess: (data) => {
       setVitals(data);
+      toast.success('Vitals saved successfully!');
       // Invalidate queries to refresh data in other components
       queryClient.invalidateQueries({ queryKey: ['vitals', currentVisit?.opdVisit?.id] });
       queryClient.invalidateQueries({ queryKey: ['vitalHistory', currentPatient?.id] });
@@ -76,6 +83,10 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
       if (onSuccess) {
         onSuccess();
       }
+    },
+    onError: (error) => {
+      console.error('Error saving vitals:', error);
+      toast.error('Failed to save vitals. Please try again.');
     },
   });
 
@@ -158,6 +169,54 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
       visitId: currentVisit.opdVisit.id!,
       vitals: vitalData as any,
     });
+  };
+
+  // Load templates from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('vitalTemplates');
+    if (saved) {
+      try {
+        setVitalTemplates(JSON.parse(saved));
+      } catch (e) {
+        console.error('Error loading vital templates:', e);
+      }
+    }
+  }, []);
+
+  // Save current vitals as template
+  const saveAsTemplate = () => {
+    if (!newTemplateName.trim()) {
+      toast.error('Please enter a template name');
+      return;
+    }
+
+    const template = {
+      id: Date.now().toString(),
+      name: newTemplateName,
+      vitals: formData,
+    };
+
+    const updated = [...vitalTemplates, template];
+    setVitalTemplates(updated);
+    localStorage.setItem('vitalTemplates', JSON.stringify(updated));
+    toast.success(`Template "${newTemplateName}" saved!`);
+    setNewTemplateName('');
+    setShowSaveTemplateModal(false);
+  };
+
+  // Apply a template
+  const applyTemplate = (template: any) => {
+    setFormData(template.vitals);
+    setShowTemplateModal(false);
+    toast.success('Template applied!');
+  };
+
+  // Delete a template
+  const deleteTemplate = (id: string) => {
+    const updated = vitalTemplates.filter(t => t.id !== id);
+    setVitalTemplates(updated);
+    localStorage.setItem('vitalTemplates', JSON.stringify(updated));
+    toast.success('Template deleted');
   };
 
   const calculateBMI = () => {
@@ -320,6 +379,22 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
         {/* Save Button */}
         <div className="mt-6 flex items-center justify-end gap-3">
           <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowTemplateModal(true)}
+          >
+            <FolderOpen className="w-4 h-4 mr-2" />
+            Templates
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowSaveTemplateModal(true)}
+          >
+            <BookmarkPlus className="w-4 h-4 mr-2" />
+            Save as Template
+          </Button>
+          <Button
             type="submit"
             variant="primary"
             size="lg"
@@ -330,6 +405,74 @@ export const VitalsForm: React.FC<Props> = ({ onSuccess }) => {
           </Button>
         </div>
       </form>
+
+      {/* Template Modal */}
+      {showTemplateModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[70vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900">Vital Templates</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {vitalTemplates.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No templates saved yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {vitalTemplates.map((template) => (
+                    <div key={template.id} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-900">{template.name}</span>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => applyTemplate(template)}
+                            className="px-3 py-1 bg-emerald-500 text-white rounded text-sm hover:bg-emerald-600"
+                          >
+                            Apply
+                          </button>
+                          <button
+                            onClick={() => deleteTemplate(template.id)}
+                            className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200">
+              <Button onClick={() => setShowTemplateModal(false)} variant="outline" className="w-full">
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Template Modal */}
+      {showSaveTemplateModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">Save as Template</h3>
+            <Input
+              label="Template Name"
+              value={newTemplateName}
+              onChange={(e) => setNewTemplateName(e.target.value)}
+              placeholder="e.g., Diabetic Patient Vitals"
+            />
+            <div className="mt-6 flex gap-3">
+              <Button onClick={() => setShowSaveTemplateModal(false)} variant="outline" className="flex-1">
+                Cancel
+              </Button>
+              <Button onClick={saveAsTemplate} variant="primary" className="flex-1">
+                Save Template
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

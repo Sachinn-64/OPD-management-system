@@ -492,7 +492,8 @@ class ConsultationService {
     visitId: string; 
     vitals: Partial<VitalRecord>;
   }): Promise<VitalRecord> {
-    const visit = await this.getById(data.visitId);
+    const service = getService();
+    const visit = await service.getById(data.visitId);
     if (!visit) throw new Error('Visit not found');
     
     // Convert flat vitals to details array format
@@ -521,7 +522,7 @@ class ConsultationService {
     };
     
     const updatedVitals = [...(visit.vitals || []), vitalRecord];
-    await this.update(data.visitId, { vitals: updatedVitals });
+    await service.update(data.visitId, { vitals: updatedVitals });
     return vitalRecord;
   }
 
