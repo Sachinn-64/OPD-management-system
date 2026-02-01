@@ -121,22 +121,22 @@ export const PatientHistory: React.FC = () => {
       };
 
       // Add clinical data
-      if (visit.histories?.length > 0) {
+      if (visit.histories && visit.histories.length > 0) {
         const chiefComplaint = visit.histories.find(h => h.historyType === 'CHIEF_COMPLAINT');
         if (chiefComplaint) addSection('Chief Complaint:', chiefComplaint.description || '');
       }
 
-      if (visit.notes?.length > 0) {
+      if (visit.notes && visit.notes.length > 0) {
         const examination = visit.notes.find(n => n.noteType === 'EXAMINATION');
         if (examination) addSection('Examination:', examination.noteText || '');
       }
 
-      if (visit.diagnoses?.length > 0) {
+      if (visit.diagnoses && visit.diagnoses.length > 0) {
         const diagnosisText = visit.diagnoses.map(d => `${d.diagnosisType}: ${d.diagnosisText}`).join('\n');
         addSection('Diagnosis:', diagnosisText);
       }
 
-      if (visit.prescriptions?.length > 0 && visit.prescriptions[0].items?.length > 0) {
+      if (visit.prescriptions && visit.prescriptions.length > 0 && visit.prescriptions[0].items && visit.prescriptions[0].items.length > 0) {
         const prescText = visit.prescriptions[0].items.map((item: any) => 
           `${item.medicationName} - ${item.dosage || ''} - ${item.frequency} - ${item.duration}`
         ).join('\n');

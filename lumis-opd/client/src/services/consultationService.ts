@@ -144,8 +144,8 @@ class ConsultationService {
             return {
               id: visit.appointmentId || visit.id,
               appointmentDate: visit.visitDate,
-              appointmentTime: appointmentData?.appointmentTime || '00:00',
-              appointmentStatus: appointmentData?.status,
+              appointmentTime: (appointmentData as any)?.appointmentTime || '00:00',
+              appointmentStatus: (appointmentData as any)?.status,
               patientId: visit.patientId,
               doctorId: visit.doctorId,
               opdVisit: visit, // Embed the full visit data

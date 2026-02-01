@@ -1,4 +1,4 @@
-import { FirestoreService, where, orderBy, COLLECTIONS, Doctor, Visit } from '../lib/firebase';
+import { FirestoreService, COLLECTIONS, Doctor } from '../lib/firebase';
 import { db } from '../config/firebase';
 import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 
@@ -244,7 +244,7 @@ class DoctorService {
               totalVisits: 1,
               lastVisitDate: appointment.appointmentDate,
             });
-            console.log('Added patient:', patientData.firstName, patientData.lastName);
+            console.log('Added patient:', (patientData as any).firstName, (patientData as any).lastName);
           } else {
             console.log('Patient not found:', patientId);
           }

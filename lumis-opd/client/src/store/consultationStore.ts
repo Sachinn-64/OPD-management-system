@@ -2,13 +2,13 @@ import { create } from 'zustand';
 import type { Appointment } from '../services/appointmentService';
 
 export interface Patient {
-  id: string;
+  id?: string;
   uhid: string;
   firstName: string;
   lastName: string;
   dateOfBirth: string;
   gender: string;
-  phone: string;
+  phone?: string;
   email?: string;
   address?: string;
 }

@@ -23,15 +23,15 @@ export const useSocket = (options: UseSocketOptions = {}) => {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const { accessToken } = useAuthStore();
+  const { user } = useAuthStore();
 
   useEffect(() => {
-    if (!autoConnect || !accessToken) return;
+    if (!autoConnect || !user) return;
 
     // Create socket connection
     const socket = io(`${API_CONFIG.SOCKET_URL}${namespace}`, {
       auth: {
-        token: accessToken,
+        token: user.uid,
       },
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -64,7 +64,7 @@ export const useSocket = (options: UseSocketOptions = {}) => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [autoConnect, accessToken, namespace]);
+  }, [autoConnect, user, namespace]);
 
   // Subscribe to notifications
   const onNotification = (callback: (notification: NotificationPayload) => void) => {
