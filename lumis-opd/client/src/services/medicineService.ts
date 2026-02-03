@@ -49,7 +49,14 @@ class MedicineService {
     const now = Date.now();
     
     // Return cached if valid
-    if (this.cachedMedicines && (now - this.cacheTimestamp) < this.CACHE_DURATION) {
+    // IMPORTANT: do not treat an empty cache ([]) as valid, so that
+    // if the database was empty when we first loaded but later got
+    // seeded (e.g. via scripts), we will refetch fresh data.
+    if (
+      this.cachedMedicines &&
+      this.cachedMedicines.length > 0 &&
+      now - this.cacheTimestamp < this.CACHE_DURATION
+    ) {
       return this.cachedMedicines;
     }
 

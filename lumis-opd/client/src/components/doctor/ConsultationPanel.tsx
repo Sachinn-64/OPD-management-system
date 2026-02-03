@@ -69,6 +69,7 @@ interface DiagnosisData {
 interface PrescriptionItem {
   id: string;
   drugName: string;
+  genericName?: string;
   dosage?: string;
   frequency: string;
   timing: string;
@@ -232,6 +233,7 @@ export const ConsultationPanel: React.FC = () => {
     const mappedItems = prescription.items.map((item: any, index: number) => ({
       id: `prev-${Date.now()}-${index}`,
       drugName: item.medicationName || item.drugName || '',
+      genericName: item.genericName,
       dosage: item.dosage || '',
       frequency: item.frequency || '',
       timing: item.beforeAfterFood || item.timing || 'After Food',
@@ -395,6 +397,7 @@ export const ConsultationPanel: React.FC = () => {
             parsedPrescriptions.push({
               id: item.id || crypto.randomUUID(),
               drugName: item.drugName || item.medicationName,
+              genericName: item.genericName,
               dosage: item.dosage,
               frequency: item.frequency,
               timing: item.beforeAfterFood || 'BEFORE',
@@ -666,6 +669,7 @@ export const ConsultationPanel: React.FC = () => {
       const prescriptionItems = prescriptions.length > 0 && prescriptions[0].items
         ? prescriptions[0].items.map((item: any) => ({
             drugName: item.drugName || item.medicationName,
+            genericName: item.genericName,
             dosage: item.dosage,
             frequency: item.frequency,
             durationDays: item.durationDays || parseInt(item.duration) || 0,
@@ -2242,6 +2246,7 @@ export const ConsultationPanel: React.FC = () => {
             items={printSections.prescription ? prescriptionData.map(item => ({
               id: item.id,
               drugName: item.drugName,
+              genericName: item.genericName,
               dosage: item.dosage || '',
               frequency: item.frequency || '',
               timing: item.timing || '',

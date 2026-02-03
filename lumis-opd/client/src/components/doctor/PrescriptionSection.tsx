@@ -8,6 +8,7 @@ import { MedicineAutocomplete } from './MedicineAutocomplete';
 interface PrescriptionItem {
   id: string;
   drugName: string;
+  genericName?: string;
   dosage?: string;
   frequency: string;
   timing: string;
@@ -172,6 +173,15 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
 
   const updateItem = (id: string, field: keyof PrescriptionItem, value: any) => {
     const updated = items.map((item) => (item.id === id ? { ...item, [field]: value } : item));
+    setItems(updated);
+    onSave?.(updated);
+  };
+
+  /** Update both drugName and genericName in one shot (avoids race when selecting from dropdown). */
+  const setItemMedicine = (id: string, drugName: string, genericName: string) => {
+    const updated = items.map((item) =>
+      item.id === id ? { ...item, drugName, genericName } : item
+    );
     setItems(updated);
     onSave?.(updated);
   };
@@ -385,6 +395,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                 <MedicineAutocomplete
                   value={item.drugName}
                   onChange={(val) => updateItem(item.id, 'drugName', val)}
+                  onSelectMedicine={(med) => setItemMedicine(item.id, med.name, med.genericName ?? '')}
                   placeholder="Type medicine name (e.g., Paracetamol)"
                 />
               </div>

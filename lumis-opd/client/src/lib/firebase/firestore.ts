@@ -56,8 +56,11 @@ export class FirestoreService<T extends { id?: string }> {
 
   // Create a new document
   async create(data: Omit<T, 'id'>): Promise<string> {
+    // Clean data to remove undefined values (Firestore does not accept them)
+    const cleanedData = this.cleanUndefinedValues(data);
+
     const docRef = await addDoc(this.getCollectionRef(), {
-      ...data,
+      ...cleanedData,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });

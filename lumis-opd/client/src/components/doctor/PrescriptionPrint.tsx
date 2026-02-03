@@ -4,6 +4,7 @@ import { useConsultationStore } from '../../store/consultationStore';
 interface PrescriptionItem {
   id: string;
   drugName: string;
+  genericName?: string;
   dosage?: string;
   frequency: string;
   timing: string;
@@ -426,6 +427,10 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
                           <div>
                             {/* Medicine name always in English */}
                             <span className="font-medium text-gray-900">{item.drugName}</span>
+                            {/* Generic name below medicine (shown when Print Rx is used) */}
+                            {item.genericName && (
+                              <div className="text-[11px] text-gray-500 mt-0.5 font-normal">{item.genericName}</div>
+                            )}
                             {/* Dosage (strength like 500mg) in English */}
                             {item.dosage && (
                               <span className="text-gray-500 ml-1">- {item.dosage}</span>

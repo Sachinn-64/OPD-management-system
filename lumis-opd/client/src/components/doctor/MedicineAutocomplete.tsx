@@ -6,6 +6,8 @@ import toast from 'react-hot-toast';
 interface MedicineAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
+  /** Called when user selects a medicine from suggestions (passes full medicine so parent can store genericName) */
+  onSelectMedicine?: (medicine: Medicine) => void;
   placeholder?: string;
   className?: string;
 }
@@ -13,6 +15,7 @@ interface MedicineAutocompleteProps {
 export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
   value,
   onChange,
+  onSelectMedicine,
   placeholder = 'Type medicine name...',
   className = '',
 }) => {
@@ -174,7 +177,16 @@ export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
 
   // Select a medicine from suggestions
   const selectMedicine = (medicine: Medicine) => {
-    onChange(medicine.name);
+    if (blurTimerRef.current) {
+      clearTimeout(blurTimerRef.current);
+      blurTimerRef.current = null;
+    }
+    // If parent handles full selection (drugName + genericName), use that only to avoid double state updates
+    if (onSelectMedicine) {
+      onSelectMedicine(medicine);
+    } else {
+      onChange(medicine.name);
+    }
     setIsOpen(false);
     setSuggestions([]);
     inputRef.current?.focus();
@@ -243,7 +255,11 @@ export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
             <button
               key={medicine.id || index}
               type="button"
-              onClick={() => selectMedicine(medicine)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                selectMedicine(medicine);
+              }}
               className={`w-full px-3 py-2.5 text-left flex items-center justify-between hover:bg-emerald-50 transition-colors ${
                 highlightedIndex === index ? 'bg-emerald-50' : ''
               }`}
@@ -269,7 +285,11 @@ export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
             <button
               type="button"
               disabled={isAdding}
-              onClick={() => confirmCustomName(value)}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isAdding) confirmCustomName(value);
+              }}
               className="w-full px-3 py-2.5 text-left flex items-center gap-2 hover:bg-emerald-50 border-t border-gray-100 text-gray-700 disabled:opacity-60"
             >
               {isAdding ? (
@@ -297,7 +317,11 @@ export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
           <button
             type="button"
             disabled={isAdding}
-            onClick={() => confirmCustomName(value)}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!isAdding) confirmCustomName(value);
+            }}
             className="w-full mt-2 px-3 py-2 flex items-center justify-center gap-2 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-medium disabled:opacity-60"
           >
             {isAdding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
