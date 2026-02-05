@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Trash2, Pill, Save, FolderOpen, X, FileText, Edit2, Loader2, History, Calendar, ChevronLeft, ChevronRight, Printer } from 'lucide-react';
+import { Plus, Trash2, Pill, Save, FolderOpen, X, FileText, Edit2, Loader2, History, Calendar, ChevronLeft, ChevronRight, ChevronDown, Printer } from 'lucide-react';
 import { consultationService, PrescriptionTemplate, TemplateItem } from '../../services/consultationService';
 import { PrescriptionPrint } from './PrescriptionPrint';
 import { MedicineAutocomplete } from './MedicineAutocomplete';
@@ -80,7 +80,8 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
   const [previousPrescriptions, setPreviousPrescriptions] = useState<any[]>([]);
   const [isLoadingPrevious, setIsLoadingPrevious] = useState(false);
   const [previousPage, setPreviousPage] = useState(1);
-  const previousLimit = 5;
+  const [expandedPrescriptions, setExpandedPrescriptions] = useState<Set<string>>(new Set());
+  const previousLimit = 10;
 
   const handlePrint = () => {
     setShowPrintModal(false);
@@ -754,17 +755,25 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
         </div>
       )}
 
-      {/* Previous Prescriptions Modal */}
+      {/* Previous Prescriptions Modal - Compact Date List with Expandable Medicines */}
       {showPreviousModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-amber-600" />
                 <span className="font-bold text-gray-900">Previous Prescriptions</span>
+                {previousPrescriptions.length > 0 && (
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    {previousPrescriptions.length} record{previousPrescriptions.length !== 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
               <button
-                onClick={() => setShowPreviousModal(false)}
+                onClick={() => {
+                  setShowPreviousModal(false);
+                  setExpandedPrescriptions(new Set());
+                }}
                 className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded"
               >
                 <X className="w-5 h-5" />
@@ -784,70 +793,125 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                   <p className="text-sm mt-1">This patient has no prior prescription records.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {previousPrescriptions.map((prescription: any) => (
-                    <div
-                      key={prescription.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:border-amber-300 hover:bg-amber-50/30 transition-all"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-gray-400" />
-                          <span className="font-medium text-gray-900">
-                            {prescription.opdVisit?.visitDate
-                              ? new Date(prescription.opdVisit.visitDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                              : new Date(prescription.prescribedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                            }
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => applyPreviousPrescription(prescription)}
-                          disabled={!prescription.items || prescription.items.length === 0}
-                          className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Apply
-                        </button>
-                      </div>
+                <div className="space-y-2">
+                  {/* Sort prescriptions by date (most recent first) and map */}
+                  {[...previousPrescriptions]
+                    .sort((a, b) => {
+                      const dateA = new Date(a.opdVisit?.visitDate || a.prescribedAt || 0);
+                      const dateB = new Date(b.opdVisit?.visitDate || b.prescribedAt || 0);
+                      return dateB.getTime() - dateA.getTime();
+                    })
+                    .map((prescription: any) => {
+                      const isExpanded = expandedPrescriptions.has(prescription.id);
+                      const prescDate = prescription.opdVisit?.visitDate || prescription.prescribedAt;
+                      const formattedDate = prescDate
+                        ? new Date(prescDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : 'Unknown Date';
+                      const medicineCount = prescription.items?.length || 0;
 
-                      {prescription.items && prescription.items.length > 0 ? (
-                        <div className="space-y-1 mt-2">
-                          {prescription.items.map((item: any, idx: number) => (
-                            <div key={idx} className="flex items-center gap-2 text-sm text-gray-600">
-                              <Pill className="w-3 h-3 text-emerald-500" />
-                              <span>{item.medicationName || item.drugName}</span>
-                              {item.dosage && <span className="text-gray-400">• {item.dosage}</span>}
-                              <span className="text-gray-400">• {item.frequency}</span>
-                              <span className="text-gray-400">• {item.duration || `${item.durationDays} days`}</span>
+                      return (
+                        <div
+                          key={prescription.id}
+                          className={`border rounded-lg transition-all ${isExpanded
+                              ? 'border-amber-400 bg-amber-50/50'
+                              : 'border-gray-200 hover:border-amber-300'
+                            }`}
+                        >
+                          {/* Compact Date Row - Always Visible */}
+                          <div
+                            className="flex items-center justify-between px-4 py-3 cursor-pointer"
+                            onClick={() => {
+                              setExpandedPrescriptions(prev => {
+                                const next = new Set(prev);
+                                if (next.has(prescription.id)) {
+                                  next.delete(prescription.id);
+                                } else {
+                                  next.add(prescription.id);
+                                }
+                                return next;
+                              });
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              {/* Expand/Collapse Icon */}
+                              <ChevronDown
+                                className={`w-4 h-4 text-amber-600 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''
+                                  }`}
+                              />
+                              {/* Date */}
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-gray-400" />
+                                <span className="font-medium text-gray-900">{formattedDate}</span>
+                              </div>
+                              {/* Medicine count badge */}
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                                {medicineCount} medicine{medicineCount !== 1 ? 's' : ''}
+                              </span>
                             </div>
-                          ))}
+                            {/* Apply Button - Stop propagation to prevent toggle */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                applyPreviousPrescription(prescription);
+                              }}
+                              disabled={medicineCount === 0}
+                              className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Apply
+                            </button>
+                          </div>
+
+                          {/* Expandable Medicines List */}
+                          {isExpanded && (
+                            <div className="px-4 pb-3 pt-1 border-t border-amber-200">
+                              {medicineCount > 0 ? (
+                                <div className="space-y-1.5 ml-7">
+                                  {prescription.items.map((item: any, idx: number) => (
+                                    <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                                      <Pill className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                                      <span className="font-medium">{item.medicationName || item.drugName}</span>
+                                      {item.dosage && <span className="text-gray-500">• {item.dosage}</span>}
+                                      <span className="text-gray-500">• {item.frequency}</span>
+                                      <span className="text-gray-500">• {item.duration || `${item.durationDays} days`}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-400 italic ml-7">No medicines recorded</p>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <p className="text-sm text-gray-400 italic mt-2">No medicines added</p>
-                      )}
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
               )}
             </div>
 
-            {/* Pagination */}
+            {/* Pagination - Only show if there might be more records */}
             {previousPrescriptions.length > 0 && (
               <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between bg-gray-50">
                 <button
-                  onClick={() => setPreviousPage(p => Math.max(1, p - 1))}
+                  onClick={() => {
+                    setPreviousPage(p => Math.max(1, p - 1));
+                    setExpandedPrescriptions(new Set());
+                  }}
                   disabled={previousPage === 1}
                   className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Previous
+                  Older
                 </button>
                 <span className="text-sm text-gray-500">Page {previousPage}</span>
                 <button
-                  onClick={() => setPreviousPage(p => p + 1)}
+                  onClick={() => {
+                    setPreviousPage(p => p + 1);
+                    setExpandedPrescriptions(new Set());
+                  }}
                   disabled={previousPrescriptions.length < previousLimit}
                   className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Next
+                  Newer
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
