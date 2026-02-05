@@ -49,10 +49,16 @@ export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
       const exactMatch = existing.find((m) => m.name.toLowerCase() === key);
       if (exactMatch) {
         onChange(exactMatch.name);
+        // Call onSelectMedicine with the found medicine
+        if (onSelectMedicine) {
+          onSelectMedicine(exactMatch);
+        }
         setIsOpen(false);
         return;
       }
-      await medicineService.create({ 
+      
+      // Create new medicine without form
+      const newMedicine = await medicineService.create({ 
         name: trimmed, 
         quantity: 0, 
         isActive: true,
@@ -61,6 +67,18 @@ export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
       });
       addedNamesRef.current.add(key);
       onChange(trimmed);
+      
+      // Call onSelectMedicine with the new medicine to trigger form selection modal
+      if (onSelectMedicine) {
+        onSelectMedicine({
+          ...newMedicine,
+          name: trimmed,
+          isActive: true,
+          strength: '',
+          form: 'OTHER'
+        });
+      }
+      
       setIsOpen(false);
       toast.success(`"${trimmed}" added to medicines`);
     } catch (err) {
@@ -71,7 +89,7 @@ export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
     } finally {
       setIsAdding(false);
     }
-  }, [onChange]);
+  }, [onChange, onSelectMedicine]);
 
   // Search for medicines
   const searchMedicines = useCallback(async (query: string) => {

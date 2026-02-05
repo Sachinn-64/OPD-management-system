@@ -5,6 +5,9 @@ import { consultationService, PrescriptionTemplate, TemplateItem } from '../../s
 import { doctorService } from '../../services/doctorService';
 import { PrescriptionPrint } from './PrescriptionPrint';
 import { MedicineAutocomplete } from './MedicineAutocomplete';
+import { FormSelectorModal } from './FormSelectorModal';
+import { MedicineForm, FORM_CONFIGS } from '../../config/prescriptionConfig';
+import { Medicine } from '../../services/medicineService';
 
 interface PrescriptionItem {
   id: string;
@@ -14,6 +17,8 @@ interface PrescriptionItem {
   frequency: string;
   timing: string;
   durationDays: number;
+  form?: MedicineForm; // Medicine form type
+  content?: string; // Content/Strength (e.g., 500mg, 100ml)
 }
 
 interface PrescriptionSectionProps {
@@ -86,6 +91,10 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
 
   // Custom frequency presets state
   const [customFrequencies, setCustomFrequencies] = useState<string[]>([]);
+
+  // Form selector modal state
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [pendingMedicine, setPendingMedicine] = useState<{ itemId: string; name: string } | null>(null);
 
   // Load custom frequencies from doctor profile
   useEffect(() => {
@@ -196,6 +205,8 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
     const newItem: PrescriptionItem = {
       id: Date.now().toString(),
       drugName: '',
+      form: undefined,
+      content: '',
       dosage: '',
       frequency: '',
       timing: '',
@@ -219,12 +230,74 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
   };
 
   /** Update both drugName and genericName in one shot (avoids race when selecting from dropdown). */
-  const setItemMedicine = (id: string, drugName: string, genericName: string) => {
+  const setItemMedicine = (id: string, medicine: Medicine) => {
+    // Check if medicine has form in database
+    if (!medicine.form || medicine.form === 'OTHER') {
+      // No form in database - show modal to select
+      // First update the medicine name so user sees it
+      const updated = items.map((item) =>
+        item.id === id ? { 
+          ...item, 
+          drugName: medicine.name, 
+          genericName: medicine.genericName,
+        } : item
+      );
+      setItems(updated);
+      onSave?.(updated);
+      
+      // Then show modal for form selection
+      setPendingMedicine({ itemId: id, name: medicine.name });
+      setShowFormModal(true);
+    } else {
+      // Form already known from DB
+      const updated = items.map((item) =>
+        item.id === id ? { 
+          ...item, 
+          drugName: medicine.name, 
+          genericName: medicine.genericName,
+          form: medicine.form,
+          content: medicine.strength || '',
+        } : item
+      );
+      setItems(updated);
+      onSave?.(updated);
+    }
+  };
+
+  // Handle form selection from modal
+  const handleFormSelect = (form: MedicineForm, content: string) => {
+    if (!pendingMedicine) return;
+    
     const updated = items.map((item) =>
-      item.id === id ? { ...item, drugName, genericName } : item
+      item.id === pendingMedicine.itemId ? { 
+        ...item, 
+        drugName: pendingMedicine.name, 
+        form,
+        content,
+      } : item
     );
     setItems(updated);
     onSave?.(updated);
+    
+    setShowFormModal(false);
+    setPendingMedicine(null);
+  };
+
+  // Get form-specific frequencies for an item
+  const getFrequenciesForItem = (item: PrescriptionItem) => {
+    if (!item.form || item.form === 'OTHER') {
+      // Default frequencies for unknown forms
+      return frequencyPresets;
+    }
+    return FORM_CONFIGS[item.form].frequencies.map(f => f.value);
+  };
+
+  // Get timing options for an item
+  const getTimingOptionsForItem = (item: PrescriptionItem) => {
+    if (!item.form || item.form === 'OTHER') {
+      return timingOptions;
+    }
+    return FORM_CONFIGS[item.form].timingOptions.map(t => ({ label: t.en, value: t.value }));
   };
 
   // Apply a template - adds template items to current prescription
@@ -432,11 +505,16 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
               <div className="col-span-2">
                 <label className="block text-base font-semibold text-gray-900 mb-2">
                   Drug Name
+                  {item.form && (
+                    <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-100 text-emerald-700">
+                      {FORM_CONFIGS[item.form].icon} {item.form}
+                    </span>
+                  )}
                 </label>
                 <MedicineAutocomplete
                   value={item.drugName}
                   onChange={(val) => updateItem(item.id, 'drugName', val)}
-                  onSelectMedicine={(med) => setItemMedicine(item.id, med.name, med.genericName ?? '')}
+                  onSelectMedicine={(med) => setItemMedicine(item.id, med)}
                   placeholder="Type medicine name (e.g., Paracetamol)"
                 />
               </div>
@@ -457,18 +535,23 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
               <div>
                 <label className="block text-base font-semibold text-gray-900 mb-2">
                   Frequency
+                  {item.form && item.form !== 'OTHER' && (
+                    <span className="ml-2 text-xs text-emerald-600 font-normal">
+                      ({FORM_CONFIGS[item.form].label.en}-specific)
+                    </span>
+                  )}
                 </label>
                 <div className="space-y-2">
                   <input
                     type="text"
                     value={item.frequency}
                     onChange={(e) => updateItem(item.id, 'frequency', e.target.value)}
-                    placeholder="e.g., 1-1-1 or 1-1-2-1"
+                    placeholder={item.form && FORM_CONFIGS[item.form] ? FORM_CONFIGS[item.form].dosagePlaceholder.en : "e.g., 1-1-1"}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded text-base focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                   <div className="flex flex-wrap gap-1.5">
-                    {/* Default frequency presets */}
-                    {frequencyPresets.map((preset) => (
+                    {/* Form-specific frequency presets */}
+                    {getFrequenciesForItem(item).map((preset) => (
                       <button
                         key={preset}
                         type="button"
@@ -498,7 +581,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                     {/* Save custom frequency button - only show if user typed something not in presets */}
                     {item.frequency &&
                       item.frequency.trim() !== '' &&
-                      !frequencyPresets.includes(item.frequency) &&
+                      !getFrequenciesForItem(item).includes(item.frequency) &&
                       !customFrequencies.includes(item.frequency) && (
                         <button
                           type="button"
@@ -524,7 +607,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                   className="w-full px-3 py-2.5 border border-gray-300 rounded text-base focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                 >
                   <option value="">Select timing</option>
-                  {timingOptions.map((opt) => (
+                  {getTimingOptionsForItem(item).map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -989,6 +1072,17 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
           </div>
         </div>
       )}
+
+      {/* Form Selector Modal */}
+      <FormSelectorModal
+        isOpen={showFormModal}
+        medicineName={pendingMedicine?.name || ''}
+        onSelect={handleFormSelect}
+        onCancel={() => {
+          setShowFormModal(false);
+          setPendingMedicine(null);
+        }}
+      />
     </div>
   );
 };
