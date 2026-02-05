@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Users,
   Calendar,
@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   X,
   RefreshCw,
+  Edit3,
+  Save,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useConsultationStore } from '../../store/consultationStore';
@@ -27,10 +29,15 @@ import { PatientHistory } from '../../components/doctor/PatientHistory';
 import { HOSPITAL_INFO } from '../../config/constants';
 
 export const DoctorDashboard: React.FC = () => {
+  const queryClient = useQueryClient();
   const { user, logout } = useAuthStore();
   const { currentVisit, setTodayQueue, selectQueuePatient } = useConsultationStore();
   const { isConnected, onNotification } = useSocket();
   const [activeView, setActiveView] = useState<'consultation' | 'history'>('consultation');
+
+  // Profile edit modal state
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [editSpecialty, setEditSpecialty] = useState('');
 
   // Fetch doctor profile first to get doctorId
   const { data: doctorProfile, isLoading: isLoadingProfile, error: profileError } = useQuery({
@@ -226,17 +233,24 @@ export const DoctorDashboard: React.FC = () => {
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
               </button>
 
-              <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg">
+              <button
+                onClick={() => {
+                  setEditSpecialty(doctorProfile?.specialty || '');
+                  setShowProfileModal(true);
+                }}
+                className="hidden md:flex items-center gap-3 px-4 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              >
                 <UserCircle className="w-8 h-8 text-gray-600" />
                 <div className="text-left">
                   <p className="text-sm font-semibold text-gray-900">
                     Dr. {user?.username}
                   </p>
                   <p className="text-xs text-gray-600">
-                    {user?.roles.includes('doctor') ? 'Physician' : user?.roles[0]}
+                    {doctorProfile?.specialty || 'Click to set specialty'}
                   </p>
                 </div>
-              </div>
+                <Edit3 className="w-4 h-4 text-gray-400" />
+              </button>
 
               <Button
                 variant="outline"
@@ -350,6 +364,77 @@ export const DoctorDashboard: React.FC = () => {
           </Card>
         )}
       </div>
+
+      {/* Profile Edit Modal */}
+      {showProfileModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-teal-50">
+              <div className="flex items-center gap-3">
+                <UserCircle className="w-8 h-8 text-emerald-600" />
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Edit Profile</h2>
+                  <p className="text-sm text-gray-600">Dr. {user?.username}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Specialty / Degrees
+                </label>
+                <input
+                  type="text"
+                  value={editSpecialty}
+                  onChange={(e) => setEditSpecialty(e.target.value)}
+                  placeholder="e.g., Cardiologist, MD, MBBS"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Enter your specialty and/or degrees. This will be displayed on prescriptions.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex gap-3 justify-end">
+              <button
+                onClick={() => setShowProfileModal(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!user?.id || !editSpecialty.trim()) return;
+                  try {
+                    await doctorService.update(user.id, { specialty: editSpecialty.trim() });
+                    // Refetch doctor profile to update the UI
+                    queryClient.invalidateQueries({ queryKey: ['doctorProfile', user.id] });
+                    setShowProfileModal(false);
+                  } catch (error) {
+                    console.error('Failed to update specialty:', error);
+                    alert('Failed to update specialty. Please try again.');
+                  }
+                }}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2"
+              >
+                <Save className="w-4 h-4" />
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
