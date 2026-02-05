@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
 import { useConsultationStore } from '../../store/consultationStore';
+import { FORM_CONFIGS } from '../../config/prescriptionConfig';
 
 interface PrescriptionItem {
   id: string;
@@ -103,6 +104,15 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
   const getTranslatedFrequency = (freq: string) => {
     if (printLanguage === 'en' || !freq) return null;
 
+    // First, try to find exact match in FORM_CONFIGS
+    for (const formConfig of Object.values(FORM_CONFIGS)) {
+      const match = formConfig.frequencies.find(f => f.value === freq);
+      if (match) {
+        return match[printLanguage as 'hi' | 'mr' | 'kn'];
+      }
+    }
+
+    // Fallback to pattern matching for M-A-N format
     const pattern = /^([0-9./]+)(?:\s*[-\s]\s*)([0-9./]+)(?:\s*[-\s]\s*)([0-9./]+)(?:(?:\s*[-\s]\s*)([0-9./]+))?$/;
 
     const cleanFreq = freq.trim();
@@ -137,6 +147,7 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
       if (resultParts.length > 0) return resultParts.join(' - ');
     }
 
+    // Fallback to normalized keyword translations
     const normalizedFreq = cleanFreq.replace(/\s+/g, '').toLowerCase();
 
     const translations: Record<string, { hi: string; mr: string; kn: string }> = {
