@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Trash2, Pill, Save, FolderOpen, X, FileText, Edit2, Loader2, History, Calendar, ChevronLeft, ChevronRight, ChevronDown, Printer } from 'lucide-react';
 import { consultationService, PrescriptionTemplate, TemplateItem } from '../../services/consultationService';
+import { doctorService } from '../../services/doctorService';
 import { PrescriptionPrint } from './PrescriptionPrint';
 import { MedicineAutocomplete } from './MedicineAutocomplete';
 
@@ -82,6 +83,45 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
   const [previousPage, setPreviousPage] = useState(1);
   const [expandedPrescriptions, setExpandedPrescriptions] = useState<Set<string>>(new Set());
   const previousLimit = 10;
+
+  // Custom frequency presets state
+  const [customFrequencies, setCustomFrequencies] = useState<string[]>([]);
+
+  // Load custom frequencies from doctor profile
+  useEffect(() => {
+    const loadCustomFrequencies = async () => {
+      if (!doctorId) return;
+      try {
+        const doctor = await doctorService.getById(doctorId);
+        if (doctor && doctor.customFrequencies) {
+          setCustomFrequencies(doctor.customFrequencies);
+        }
+      } catch (error) {
+        console.error('Failed to load custom frequencies:', error);
+      }
+    };
+    loadCustomFrequencies();
+  }, [doctorId]);
+
+  // Save custom frequency to doctor profile
+  const saveCustomFrequency = async (frequency: string) => {
+    if (!doctorId || !frequency.trim()) return;
+    const trimmedFreq = frequency.trim();
+
+    // Check if it already exists in defaults or customs
+    const defaultPresets = ['1-0-0', '0-0-1', '1-0-1', '1-1-1', '1-1-1-1', '2-2-2', '2-2-2-2', '1/2-1/2-1/2', '1/2-1/2-1/2-1/2', 'SOS', 'Stat'];
+    if (defaultPresets.includes(trimmedFreq) || customFrequencies.includes(trimmedFreq)) {
+      return; // Already exists
+    }
+
+    try {
+      const updatedFrequencies = [...customFrequencies, trimmedFreq];
+      await doctorService.update(doctorId, { customFrequencies: updatedFrequencies });
+      setCustomFrequencies(updatedFrequencies);
+    } catch (error) {
+      console.error('Failed to save custom frequency:', error);
+    }
+  };
 
   const handlePrint = () => {
     setShowPrintModal(false);
@@ -427,6 +467,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                     className="w-full px-3 py-2.5 border border-gray-300 rounded text-base focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                   <div className="flex flex-wrap gap-1.5">
+                    {/* Default frequency presets */}
                     {frequencyPresets.map((preset) => (
                       <button
                         key={preset}
@@ -440,6 +481,35 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                         {preset}
                       </button>
                     ))}
+                    {/* Custom frequency presets */}
+                    {customFrequencies.map((preset) => (
+                      <button
+                        key={`custom-${preset}`}
+                        type="button"
+                        onClick={() => updateItem(item.id, 'frequency', preset)}
+                        className={`px-2 py-1 text-xs rounded border transition-all ${item.frequency === preset
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100 hover:border-purple-400'
+                          }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                    {/* Save custom frequency button - only show if user typed something not in presets */}
+                    {item.frequency &&
+                      item.frequency.trim() !== '' &&
+                      !frequencyPresets.includes(item.frequency) &&
+                      !customFrequencies.includes(item.frequency) && (
+                        <button
+                          type="button"
+                          onClick={() => saveCustomFrequency(item.frequency)}
+                          className="px-2 py-1 text-xs rounded border border-dashed border-purple-400 text-purple-600 hover:bg-purple-50 transition-all flex items-center gap-1"
+                          title="Save this frequency for future use"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Save "{item.frequency}"
+                        </button>
+                      )}
                   </div>
                 </div>
               </div>
