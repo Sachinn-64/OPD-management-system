@@ -70,6 +70,8 @@ interface PrescriptionItem {
   id: string;
   drugName: string;
   genericName?: string;
+  /** Item type from formulary (e.g. Tablet, Capsule) */
+  itemType?: string;
   dosage?: string;
   frequency: string;
   timing: string;
@@ -397,6 +399,7 @@ export const ConsultationPanel: React.FC = () => {
             parsedPrescriptions.push({
               id: item.id || crypto.randomUUID(),
               drugName: item.drugName || item.medicationName,
+              itemType: item.itemType,
               genericName: item.genericName,
               dosage: item.dosage,
               frequency: item.frequency,
@@ -585,6 +588,7 @@ export const ConsultationPanel: React.FC = () => {
           items: validPrescriptions.map(item => ({
             medicationName: item.drugName,
             drugName: item.drugName, // Add drugName for backward compatibility
+            itemType: item.itemType,
             dosage: item.dosage || '',
             frequency: item.frequency,
             duration: item.durationDays ? `${item.durationDays} days` : '30 days',
@@ -669,6 +673,7 @@ export const ConsultationPanel: React.FC = () => {
       const prescriptionItems = prescriptions.length > 0 && prescriptions[0].items
         ? prescriptions[0].items.map((item: any) => ({
           drugName: item.drugName || item.medicationName,
+            itemType: item.itemType,
           genericName: item.genericName,
           dosage: item.dosage,
           frequency: item.frequency,
@@ -2246,6 +2251,8 @@ export const ConsultationPanel: React.FC = () => {
             items={printSections.prescription ? prescriptionData.map(item => ({
               id: item.id,
               drugName: item.drugName,
+              itemType: item.itemType,
+              form: (item as any).form,
               genericName: item.genericName,
               dosage: item.dosage || '',
               frequency: item.frequency || '',

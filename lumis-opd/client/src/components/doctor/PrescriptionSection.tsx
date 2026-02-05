@@ -17,6 +17,8 @@ interface PrescriptionItem {
   frequency: string;
   timing: string;
   durationDays: number;
+  /** Item type (from formulary / medicine record) */
+  itemType?: string;
   form?: MedicineForm; // Medicine form type
   content?: string; // Content/Strength (e.g., 500mg, 100ml)
 }
@@ -243,6 +245,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
           ...item, 
           drugName: medicine.name, 
           genericName: medicine.genericName,
+          itemType: medicine.itemType,
         } : item
       );
       setItems(updated);
@@ -258,6 +261,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
           ...item, 
           drugName: medicine.name, 
           genericName: medicine.genericName,
+          itemType: medicine.itemType,
           form: medicine.form,
           content: medicine.strength || '',
         } : item

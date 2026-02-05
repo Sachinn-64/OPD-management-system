@@ -6,6 +6,10 @@ interface PrescriptionItem {
   id: string;
   drugName: string;
   genericName?: string;
+  /** Item type (Tablet, Capsule, Injection, etc.) */
+  itemType?: string;
+  /** Form code (TAB, CAP, SYP, etc.) for fallback display */
+  form?: keyof typeof FORM_CONFIGS;
   dosage?: string;
   frequency: string;
   timing: string;
@@ -419,10 +423,11 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
                 <thead>
                   <tr className="border-b border-gray-300 bg-gray-50">
                     <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '5%' }}>#</th>
-                    <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '40%' }}>{t('medicine', 'Medicine Name')}</th>
-                    <th className="text-center py-1.5 px-2 font-semibold text-gray-600" style={{ width: '20%' }}>{t('frequency', 'Dose')}</th>
+                    <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '35%' }}>{t('medicine', 'Medicine Name')}</th>
+                    <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '15%' }}>Item Type</th>
+                    <th className="text-center py-1.5 px-2 font-semibold text-gray-600" style={{ width: '18%' }}>{t('frequency', 'Dose')}</th>
                     <th className="text-center py-1.5 px-2 font-semibold text-gray-600" style={{ width: '12%' }}>{t('duration', 'Days')}</th>
-                    <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '23%' }}>Instructions</th>
+                    <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '20%' }}>Instructions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -434,19 +439,36 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
                     return (
                       <tr key={item.id || index} className="medicine-row border-b border-gray-100">
                         <td className="py-2 px-2 text-gray-500 align-top">{index + 1}.</td>
+                        {/* Product / medicine name (product name from formulary) + generic name below */}
                         <td className="py-2 px-2 align-top">
                           <div>
-                            {/* Medicine name always in English */}
+                            {/* Product / medicine name (from formulary 'Product Name') */}
                             <span className="font-medium text-gray-900">{item.drugName}</span>
-                            {/* Generic name below medicine (shown when Print Rx is used) */}
+                            {/* Generic name shown below */}
                             {item.genericName && (
-                              <div className="text-[11px] text-gray-500 mt-0.5 font-normal">{item.genericName}</div>
+                              <div className="text-[11px] text-gray-500 mt-0.5 font-normal">
+                                {item.genericName}
+                              </div>
                             )}
                             {/* Dosage (strength like 500mg) in English */}
                             {item.dosage && (
                               <span className="text-gray-500 ml-1">- {item.dosage}</span>
                             )}
                           </div>
+                        </td>
+
+                        {/* Item type column: ItemType from Excel, or fallback from form (Tablet, Capsule, etc.) */}
+                        <td className="py-2 px-2 align-top text-gray-700">
+                          {(() => {
+                            const displayType =
+                              item.itemType ||
+                              (item.form ? FORM_CONFIGS[item.form].label.en : undefined);
+                            return displayType ? (
+                              <span className="text-[12px]">
+                                {displayType}
+                              </span>
+                            ) : null;
+                          })()}
                         </td>
                         {/* Dose column: English first, translation below */}
                         <td className="py-2 px-2 text-center text-gray-700 align-top">

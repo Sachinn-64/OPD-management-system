@@ -212,6 +212,8 @@ export interface Medicine {
   id?: string;
   name: string;
   genericName?: string;
+  /** Item type from formulary (e.g. Tablet, Capsule, Injection) */
+  itemType?: string;
   category?: string;
   manufacturer?: string;
   strength?: string;

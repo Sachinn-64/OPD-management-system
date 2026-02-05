@@ -80,6 +80,7 @@ function findColumnIndex(headers: (string | number)[], patterns: RegExp[]): numb
 interface ParsedRow {
   name: string;
   genericName?: string;
+  itemType?: string;
 }
 
 function parseFormularyXlsx(filePath: string): ParsedRow[] {
@@ -135,6 +136,7 @@ function parseFormularyXlsx(filePath: string): ParsedRow[] {
   })();
 
   const genericCol = findColumnIndex(headerRow, [/generic/i, /generic\s*name/i]);
+  const itemTypeCol = findColumnIndex(headerRow, [/item\s*type/i, /\btype\b/i, /\bform\b/i]);
 
   const seen = new Set<string>();
   const result: ParsedRow[] = [];
@@ -151,7 +153,22 @@ function parseFormularyXlsx(filePath: string): ParsedRow[] {
         : '';
     if (!name) continue;
 
-    const key = name.toUpperCase();
+    // Read item type if present (e.g. Tablet, Capsule, Injection)
+    let itemType: string | undefined;
+    if (itemTypeCol >= 0) {
+      const rawType = row[itemTypeCol];
+      itemType =
+        typeof rawType === 'string'
+          ? rawType.trim()
+          : rawType != null
+          ? String(rawType).trim()
+          : undefined;
+      if (itemType === '') itemType = undefined;
+    }
+
+    // De-duplicate by (name + itemType) so same product with
+    // different item types are treated as distinct.
+    const key = `${name}|${itemType || ''}`.toUpperCase();
     if (seen.has(key)) continue;
     seen.add(key);
 
@@ -167,7 +184,7 @@ function parseFormularyXlsx(filePath: string): ParsedRow[] {
       if (genericName === '') genericName = undefined;
     }
 
-    result.push({ name, genericName });
+    result.push({ name, genericName, itemType });
   }
 
   return result;
@@ -206,6 +223,7 @@ async function seedFormulary(filePath: string) {
       await addDoc(collection(db, 'medicines'), {
         name: row.name,
         genericName: row.genericName || null,
+        itemType: row.itemType || null,
         form: extractForm(row.name),
         strength: extractStrength(row.name) || null,
         quantity: 0,
