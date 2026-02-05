@@ -75,8 +75,9 @@ export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
           name: trimmed,
           isActive: true,
           strength: '',
-          form: 'OTHER'
-        });
+          form: 'OTHER',
+          _isNewMedicine: true // Flag to indicate this needs form selection
+        } as any);
       }
       
       setIsOpen(false);

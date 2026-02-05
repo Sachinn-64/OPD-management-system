@@ -231,9 +231,12 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
 
   /** Update both drugName and genericName in one shot (avoids race when selecting from dropdown). */
   const setItemMedicine = (id: string, medicine: Medicine) => {
-    // Check if medicine has form in database
-    if (!medicine.form || medicine.form === 'OTHER') {
-      // No form in database - show modal to select
+    const isNewMedicine = (medicine as any)._isNewMedicine;
+    
+    // Only show modal for newly created medicines that need form selection
+    // Don't show for existing medicines even if they have form='OTHER'
+    if (isNewMedicine && (!medicine.form || medicine.form === 'OTHER')) {
+      // New medicine without form - show modal to select
       // First update the medicine name so user sees it
       const updated = items.map((item) =>
         item.id === id ? { 
