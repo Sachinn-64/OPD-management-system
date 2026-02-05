@@ -286,9 +286,16 @@ export const MedicineAutocomplete: React.FC<MedicineAutocompleteProps> = ({
                 <span className="font-medium text-gray-900 block truncate">
                   {medicine.name}
                 </span>
-                {medicine.strength && (
-                  <span className="text-xs text-gray-500">{medicine.strength}</span>
-                )}
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  {medicine.genericName && (
+                    <span className="italic">{medicine.genericName}</span>
+                  )}
+                  {medicine.strength && (
+                    <span className={medicine.genericName ? 'border-l pl-2 border-gray-300' : ''}>
+                      {medicine.strength}
+                    </span>
+                  )}
+                </div>
               </div>
               {medicine.form && (
                 <span className={`ml-2 px-2 py-0.5 text-xs font-medium rounded ${getFormBadgeColor(medicine.form)}`}>
