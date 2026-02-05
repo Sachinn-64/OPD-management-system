@@ -236,7 +236,7 @@ export const ConsultationPanel: React.FC = () => {
       genericName: item.genericName,
       dosage: item.dosage || '',
       frequency: item.frequency || '',
-      timing: item.beforeAfterFood || item.timing || 'After Food',
+      timing: item.beforeAfterFood || item.timing || 'Any Time',
       durationDays: parseInt(item.duration?.match(/\d+/)?.[0] || '30') || 30,
       instructions: item.instructions || '',
     }));
@@ -400,7 +400,7 @@ export const ConsultationPanel: React.FC = () => {
               genericName: item.genericName,
               dosage: item.dosage,
               frequency: item.frequency,
-              timing: item.beforeAfterFood || 'BEFORE',
+              timing: item.beforeAfterFood || item.timing || 'Any Time',
               durationDays: item.durationDays || parseInt(item.duration) || 5,
               instructions: item.instructions,
             });
@@ -657,24 +657,24 @@ export const ConsultationPanel: React.FC = () => {
       const examination = notes.find((n: any) => n.noteType === 'EXAMINATION')?.noteText || notesData.examination;
       const assessment = notes.find((n: any) => n.noteType === 'ASSESSMENT')?.noteText || diagnosisData.assessment;
       const followUp = notes.find((n: any) => n.noteType === 'FOLLOW_UP')?.noteText || diagnosisData.followUp;
-      
-      const diagnosisList = diagnoses.length > 0 
+
+      const diagnosisList = diagnoses.length > 0
         ? diagnoses.map((d: any) => ({
-            diagnosisText: d.diagnosisText || d.diagnosisName,
-            icdCode: d.icdCode || d.diagnosisCode,
-            type: d.diagnosisType
-          }))
+          diagnosisText: d.diagnosisText || d.diagnosisName,
+          icdCode: d.icdCode || d.diagnosisCode,
+          type: d.diagnosisType
+        }))
         : diagnosisData.diagnoses;
 
       const prescriptionItems = prescriptions.length > 0 && prescriptions[0].items
         ? prescriptions[0].items.map((item: any) => ({
-            drugName: item.drugName || item.medicationName,
-            genericName: item.genericName,
-            dosage: item.dosage,
-            frequency: item.frequency,
-            durationDays: item.durationDays || parseInt(item.duration) || 0,
-            instructions: item.instructions
-          }))
+          drugName: item.drugName || item.medicationName,
+          genericName: item.genericName,
+          dosage: item.dosage,
+          frequency: item.frequency,
+          durationDays: item.durationDays || parseInt(item.duration) || 0,
+          instructions: item.instructions
+        }))
         : prescriptionData;
 
       const advice = {
@@ -1772,7 +1772,7 @@ export const ConsultationPanel: React.FC = () => {
                                 )}
                               </div>
                               <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                                {item.beforeAfterFood || 'After Food'}
+                                {item.beforeAfterFood || item.timing || 'Any Time'}
                               </span>
                             </div>
                           ))

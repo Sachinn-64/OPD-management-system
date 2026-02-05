@@ -143,7 +143,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
       drugName: item.medicationName || item.drugName || '',
       dosage: item.dosage || '',
       frequency: item.frequency || '',
-      timing: item.beforeAfterFood || item.timing || 'After Food',
+      timing: item.beforeAfterFood || item.timing || 'Any Time',
       durationDays: item.durationDays || parseInt(item.duration?.match(/\d+/)?.[0] || '30') || 30,
     }));
 
@@ -813,8 +813,8 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                         <div
                           key={prescription.id}
                           className={`border rounded-lg transition-all ${isExpanded
-                              ? 'border-amber-400 bg-amber-50/50'
-                              : 'border-gray-200 hover:border-amber-300'
+                            ? 'border-amber-400 bg-amber-50/50'
+                            : 'border-gray-200 hover:border-amber-300'
                             }`}
                         >
                           {/* Compact Date Row - Always Visible */}
