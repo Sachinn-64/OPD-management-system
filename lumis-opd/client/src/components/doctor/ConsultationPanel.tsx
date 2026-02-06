@@ -439,6 +439,31 @@ export const ConsultationPanel: React.FC = () => {
     loadExistingData();
   }, [currentVisit?.opdVisit?.id, currentVisit?.opdVisit?.visitStatus, currentVisit?.appointmentDate, dataRefreshTrigger]);
 
+  // Auto-start consultation when a patient is selected with OPEN status
+  useEffect(() => {
+    const visitId = currentVisit?.opdVisit?.id || currentVisit?.id;
+    const visitStatus = currentVisit?.opdVisit?.visitStatus;
+
+    // Check if visit is from today
+    if (currentVisit?.appointmentDate) {
+      const visitDate = new Date(currentVisit.appointmentDate);
+      const today = new Date();
+      const isTodayVisit =
+        visitDate.getFullYear() === today.getFullYear() &&
+        visitDate.getMonth() === today.getMonth() &&
+        visitDate.getDate() === today.getDate();
+
+      // Auto-start if status is OPEN and it's today's visit
+      if (visitId && visitStatus === 'OPEN' && isTodayVisit && !updateStatusMutation.isPending) {
+        console.log('Auto-starting consultation for visitId:', visitId);
+        updateStatusMutation.mutate({
+          visitId,
+          status: 'IN_PROGRESS',
+        });
+      }
+    }
+  }, [currentVisit?.opdVisit?.id, currentVisit?.opdVisit?.visitStatus, currentVisit?.appointmentDate]);
+
   // Callbacks for child components to update form data
   const handleNotesChange = useCallback((data: NotesData) => {
     setNotesData(data);
@@ -1348,18 +1373,6 @@ export const ConsultationPanel: React.FC = () => {
                 <ExternalLink className="w-3 h-3 sm:mr-1" />
                 <span className="hidden sm:inline">Referral</span>
               </Button>
-              {currentVisit.opdVisit?.visitStatus !== 'IN_PROGRESS' && currentVisit.opdVisit?.visitStatus !== 'COMPLETED' && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={handleStartConsultation}
-                  isLoading={updateStatusMutation.isPending}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-xs px-2 py-1"
-                >
-                  <Activity className="w-3 h-3 mr-1" />
-                  Start
-                </Button>
-              )}
             </div>
 
             {currentVisit.opdVisit?.visitStatus === 'COMPLETED' && (

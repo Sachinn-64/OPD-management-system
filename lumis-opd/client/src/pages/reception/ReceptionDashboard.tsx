@@ -8,6 +8,8 @@ import { patientService } from '../../services/patientService';
 import { appointmentService } from '../../services/appointmentService';
 import { AppointmentsList } from '../../components/reception/AppointmentsList';
 import { PatientRegistrationModal } from '../../components/reception/PatientRegistrationModal';
+import { PatientEditModal } from '../../components/reception/PatientEditModal';
+import { PatientsRecordList } from '../../components/reception/PatientsRecordList';
 import { AppointmentModal } from '../../components/reception/AppointmentModal';
 import { DoctorCard } from '../../components/reception/DoctorCard';
 import { DoctorQueueModal } from '../../components/reception/DoctorQueueModal';
@@ -19,6 +21,8 @@ export const ReceptionDashboard: React.FC = () => {
   const { user, logout } = useAuthStore();
 
   const [showPatientModal, setShowPatientModal] = useState(false);
+  const [showPatientEditModal, setShowPatientEditModal] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -85,6 +89,13 @@ export const ReceptionDashboard: React.FC = () => {
   const handleDoctorClick = (doctor: any) => {
     setSelectedDoctor(doctor);
     setShowDoctorQueue(true);
+  };
+
+  const handleEditPatient = (patient: any) => {
+    setSelectedPatient(patient);
+    setShowPatientEditModal(true);
+    setError(null);
+    setSuccess(null);
   };
 
   // Calculate stats
@@ -297,7 +308,7 @@ export const ReceptionDashboard: React.FC = () => {
         </div>
 
         {/* Appointments Section */}
-        <div className="bg-white rounded-2xl border border-emerald-100 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-emerald-100 overflow-hidden mb-8">
           <div className="border-b border-gray-100 px-6 py-5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -332,15 +343,44 @@ export const ReceptionDashboard: React.FC = () => {
           <div className="p-6">
             {activeTab === 'today' ? (
               <AppointmentsList
-                appointments={todayAppointments || []}
+                appointments={(todayAppointments || []).map((apt: any) => ({
+                  ...apt,
+                  patient: allPatients?.find((p: any) => p.id === apt.patientId),
+                  doctor: doctors?.find((d: any) => d.id === apt.doctorId),
+                }))}
                 emptyMessage="No appointments scheduled for today"
               />
             ) : (
               <AppointmentsList
-                appointments={allAppointments || []}
+                appointments={(allAppointments || []).map((apt: any) => ({
+                  ...apt,
+                  patient: allPatients?.find((p: any) => p.id === apt.patientId),
+                  doctor: doctors?.find((d: any) => d.id === apt.doctorId),
+                }))}
                 emptyMessage="No appointments found"
               />
             )}
+          </div>
+        </div>
+
+        {/* All Patients Record Section */}
+        <div className="bg-white rounded-2xl border border-emerald-100 overflow-hidden">
+          <div className="border-b border-gray-100 px-6 py-5">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-100 p-2 rounded-xl">
+                <Users className="w-5 h-5 text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">All Patients Record</h3>
+                <p className="text-sm text-gray-500">View and edit patient information</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6">
+            <PatientsRecordList
+              patients={allPatients || []}
+              onEdit={handleEditPatient}
+            />
           </div>
         </div>
 
@@ -351,6 +391,22 @@ export const ReceptionDashboard: React.FC = () => {
             onSuccess={(msg) => {
               setSuccess(msg);
               setShowPatientModal(false);
+              queryClient.invalidateQueries({ queryKey: ['allPatients'] });
+            }}
+            onError={setError}
+          />
+        )}
+        {showPatientEditModal && selectedPatient && (
+          <PatientEditModal
+            patient={selectedPatient}
+            onClose={() => {
+              setShowPatientEditModal(false);
+              setSelectedPatient(null);
+            }}
+            onSuccess={(msg) => {
+              setSuccess(msg);
+              setShowPatientEditModal(false);
+              setSelectedPatient(null);
               queryClient.invalidateQueries({ queryKey: ['allPatients'] });
             }}
             onError={setError}
@@ -375,6 +431,7 @@ export const ReceptionDashboard: React.FC = () => {
               .map((apt: any) => ({
                 ...apt,
                 patient: allPatients?.find((p: any) => p.id === apt.patientId),
+                doctor: selectedDoctor,
               }))}
             onClose={() => {
               setShowDoctorQueue(false);
