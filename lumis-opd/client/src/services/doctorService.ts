@@ -19,6 +19,7 @@ interface UserDoc {
   registrationNumber?: string;
   qualification?: string;
   consultationFee?: number;
+  customFrequencies?: string[];
   createdAt?: any;
   updatedAt?: any;
 }
@@ -36,6 +37,7 @@ const userToDoctor = (user: UserDoc): Doctor => {
     qualification: user.qualification || '',
     consultationFee: user.consultationFee || 0,
     isActive: user.isActive !== false,
+    customFrequencies: user.customFrequencies || [],
     createdAt: user.createdAt?.toDate?.() || new Date(),
     updatedAt: user.updatedAt?.toDate?.() || new Date(),
   } as Doctor;
@@ -45,12 +47,12 @@ const userToDoctor = (user: UserDoc): Doctor => {
 export const debugDoctors = async () => {
   console.log('=== DEBUG DOCTORS (from users) ===');
   console.log('Collection path:', COLLECTIONS.USERS);
-  
+
   try {
     const usersRef = collection(db, COLLECTIONS.USERS);
     const snapshot = await getDocs(usersRef);
     console.log('Total users:', snapshot.size);
-    
+
     const doctors: any[] = [];
     snapshot.forEach(doc => {
       const data = doc.data();
@@ -59,7 +61,7 @@ export const debugDoctors = async () => {
         doctors.push({ id: doc.id, ...data });
       }
     });
-    
+
     console.log('Doctors found:', doctors.length);
     return doctors;
   } catch (err) {
@@ -83,7 +85,7 @@ export const createTestDoctor = async (): Promise<Doctor> => {
     qualification: 'MBBS',
     consultationFee: 500,
   };
-  
+
   const service = new FirestoreService<UserDoc>(COLLECTIONS.USERS);
   const id = await service.create(testDoctor as any);
   return userToDoctor({ ...testDoctor, id });
@@ -94,12 +96,12 @@ class DoctorService {
   async getAll(): Promise<Doctor[]> {
     try {
       console.log('=== DoctorService.getAll() from users ===');
-      
+
       const usersRef = collection(db, COLLECTIONS.USERS);
       const snapshot = await getDocs(usersRef);
-      
+
       console.log('Total users:', snapshot.size);
-      
+
       const doctors: Doctor[] = [];
       snapshot.forEach(docSnap => {
         const data = docSnap.data() as UserDoc;
@@ -108,9 +110,9 @@ class DoctorService {
           doctors.push(userToDoctor({ ...data, id: docSnap.id }));
         }
       });
-      
+
       console.log('Doctors found:', doctors.length);
-      
+
       // Sort by firstName
       return doctors.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
     } catch (err) {
@@ -124,12 +126,12 @@ class DoctorService {
     try {
       const docRef = doc(db, COLLECTIONS.USERS, doctorId);
       const docSnap = await getDoc(docRef);
-      
+
       if (!docSnap.exists()) return null;
-      
+
       const data = docSnap.data() as UserDoc;
       if (data.role !== 'doctor') return null;
-      
+
       return userToDoctor({ ...data, id: docSnap.id });
     } catch (err) {
       console.error('Error fetching doctor by ID:', err);
@@ -158,10 +160,10 @@ class DoctorService {
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
-    
+
     const service = new FirestoreService<UserDoc>(COLLECTIONS.USERS);
     const id = await service.create(userData as any);
-    
+
     return userToDoctor({ ...userData, id } as UserDoc);
   }
 
@@ -194,7 +196,7 @@ class DoctorService {
   // Subscribe to active doctors
   subscribe(callback: (doctors: Doctor[]) => void): () => void {
     const usersRef = collection(db, COLLECTIONS.USERS);
-    
+
     return onSnapshot(usersRef, (snapshot) => {
       const doctors: Doctor[] = [];
       snapshot.forEach(docSnap => {
@@ -203,7 +205,7 @@ class DoctorService {
           doctors.push(userToDoctor({ ...data, id: docSnap.id }));
         }
       });
-      
+
       // Sort by firstName
       doctors.sort((a, b) => (a.firstName || '').localeCompare(b.firstName || ''));
       callback(doctors);
@@ -214,16 +216,16 @@ class DoctorService {
   async getPatientHistory(doctorId: string): Promise<any[]> {
     try {
       console.log('Fetching patient history for doctor:', doctorId);
-      
+
       // Query appointments for this doctor instead of visits
       const appointmentService = new FirestoreService<any>(COLLECTIONS.APPOINTMENTS);
       const appointments = await appointmentService.query('doctorId', '==', doctorId);
-      
+
       console.log('Found appointments:', appointments.length);
 
       // Group appointments by patient
       const patientMap = new Map<string, any>();
-      
+
       for (const appointment of appointments) {
         const patientId = appointment.patientId;
         if (!patientId) {
@@ -235,7 +237,7 @@ class DoctorService {
           // Fetch patient data
           const patientRef = doc(db, COLLECTIONS.PATIENTS, patientId);
           const patientSnap = await getDoc(patientRef);
-          
+
           if (patientSnap.exists()) {
             const patientData = { id: patientSnap.id, ...patientSnap.data() };
             patientMap.set(patientId, {
@@ -259,10 +261,10 @@ class DoctorService {
         }
       }
 
-      const result = Array.from(patientMap.values()).sort((a, b) => 
+      const result = Array.from(patientMap.values()).sort((a, b) =>
         new Date(b.lastVisitDate).getTime() - new Date(a.lastVisitDate).getTime()
       );
-      
+
       console.log('Returning grouped patients:', result.length);
       return result;
     } catch (err) {

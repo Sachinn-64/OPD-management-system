@@ -49,7 +49,14 @@ class MedicineService {
     const now = Date.now();
     
     // Return cached if valid
-    if (this.cachedMedicines && (now - this.cacheTimestamp) < this.CACHE_DURATION) {
+    // IMPORTANT: do not treat an empty cache ([]) as valid, so that
+    // if the database was empty when we first loaded but later got
+    // seeded (e.g. via scripts), we will refetch fresh data.
+    if (
+      this.cachedMedicines &&
+      this.cachedMedicines.length > 0 &&
+      now - this.cacheTimestamp < this.CACHE_DURATION
+    ) {
       return this.cachedMedicines;
     }
 
@@ -71,7 +78,7 @@ class MedicineService {
     }
   }
 
-  // Search medicines by name (returns top matches)
+  // Search medicines by name or generic name (returns top matches)
   async search(query: string, limit: number = 10): Promise<Medicine[]> {
     if (!query || query.length < 2) {
       return [];
@@ -80,20 +87,26 @@ class MedicineService {
     const allMedicines = await this.getAll();
     const lowerQuery = query.toLowerCase();
     
-    // Score-based matching
+    // Score-based matching on both name and genericName
     const scored = allMedicines
       .map(med => {
         const name = med.name.toLowerCase();
+        const genericName = med.genericName?.toLowerCase() || '';
         let score = 0;
         
-        // Exact match
+        // Brand name matching (higher priority)
         if (name === lowerQuery) score = 100;
-        // Starts with query
         else if (name.startsWith(lowerQuery)) score = 80;
-        // Word starts with query
         else if (name.split(' ').some(word => word.startsWith(lowerQuery))) score = 60;
-        // Contains query
         else if (name.includes(lowerQuery)) score = 40;
+        
+        // Generic name matching (slightly lower priority than brand name)
+        if (genericName) {
+          if (genericName === lowerQuery) score = Math.max(score, 95);
+          else if (genericName.startsWith(lowerQuery)) score = Math.max(score, 75);
+          else if (genericName.split(' ').some(word => word.startsWith(lowerQuery))) score = Math.max(score, 55);
+          else if (genericName.includes(lowerQuery)) score = Math.max(score, 35);
+        }
         
         return { medicine: med, score };
       })

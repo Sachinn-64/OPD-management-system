@@ -69,6 +69,9 @@ interface DiagnosisData {
 interface PrescriptionItem {
   id: string;
   drugName: string;
+  genericName?: string;
+  /** Item type from formulary (e.g. Tablet, Capsule) */
+  itemType?: string;
   dosage?: string;
   frequency: string;
   timing: string;
@@ -232,9 +235,10 @@ export const ConsultationPanel: React.FC = () => {
     const mappedItems = prescription.items.map((item: any, index: number) => ({
       id: `prev-${Date.now()}-${index}`,
       drugName: item.medicationName || item.drugName || '',
+      genericName: item.genericName,
       dosage: item.dosage || '',
       frequency: item.frequency || '',
-      timing: item.beforeAfterFood || item.timing || 'After Food',
+      timing: item.beforeAfterFood || item.timing || 'Any Time',
       durationDays: parseInt(item.duration?.match(/\d+/)?.[0] || '30') || 30,
       instructions: item.instructions || '',
     }));
@@ -395,9 +399,11 @@ export const ConsultationPanel: React.FC = () => {
             parsedPrescriptions.push({
               id: item.id || crypto.randomUUID(),
               drugName: item.drugName || item.medicationName,
+              itemType: item.itemType,
+              genericName: item.genericName,
               dosage: item.dosage,
               frequency: item.frequency,
-              timing: item.beforeAfterFood || 'BEFORE',
+              timing: item.beforeAfterFood || item.timing || 'Any Time',
               durationDays: item.durationDays || parseInt(item.duration) || 5,
               instructions: item.instructions,
             });
@@ -582,6 +588,7 @@ export const ConsultationPanel: React.FC = () => {
           items: validPrescriptions.map(item => ({
             medicationName: item.drugName,
             drugName: item.drugName, // Add drugName for backward compatibility
+            itemType: item.itemType,
             dosage: item.dosage || '',
             frequency: item.frequency,
             duration: item.durationDays ? `${item.durationDays} days` : '30 days',
@@ -654,23 +661,25 @@ export const ConsultationPanel: React.FC = () => {
       const examination = notes.find((n: any) => n.noteType === 'EXAMINATION')?.noteText || notesData.examination;
       const assessment = notes.find((n: any) => n.noteType === 'ASSESSMENT')?.noteText || diagnosisData.assessment;
       const followUp = notes.find((n: any) => n.noteType === 'FOLLOW_UP')?.noteText || diagnosisData.followUp;
-      
-      const diagnosisList = diagnoses.length > 0 
+
+      const diagnosisList = diagnoses.length > 0
         ? diagnoses.map((d: any) => ({
-            diagnosisText: d.diagnosisText || d.diagnosisName,
-            icdCode: d.icdCode || d.diagnosisCode,
-            type: d.diagnosisType
-          }))
+          diagnosisText: d.diagnosisText || d.diagnosisName,
+          icdCode: d.icdCode || d.diagnosisCode,
+          type: d.diagnosisType
+        }))
         : diagnosisData.diagnoses;
 
       const prescriptionItems = prescriptions.length > 0 && prescriptions[0].items
         ? prescriptions[0].items.map((item: any) => ({
-            drugName: item.drugName || item.medicationName,
-            dosage: item.dosage,
-            frequency: item.frequency,
-            durationDays: item.durationDays || parseInt(item.duration) || 0,
-            instructions: item.instructions
-          }))
+          drugName: item.drugName || item.medicationName,
+            itemType: item.itemType,
+          genericName: item.genericName,
+          dosage: item.dosage,
+          frequency: item.frequency,
+          durationDays: item.durationDays || parseInt(item.duration) || 0,
+          instructions: item.instructions
+        }))
         : prescriptionData;
 
       const advice = {
@@ -1768,7 +1777,7 @@ export const ConsultationPanel: React.FC = () => {
                                 )}
                               </div>
                               <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
-                                {item.beforeAfterFood || 'After Food'}
+                                {item.beforeAfterFood || item.timing || 'Any Time'}
                               </span>
                             </div>
                           ))
@@ -2242,6 +2251,9 @@ export const ConsultationPanel: React.FC = () => {
             items={printSections.prescription ? prescriptionData.map(item => ({
               id: item.id,
               drugName: item.drugName,
+              itemType: item.itemType,
+              form: (item as any).form,
+              genericName: item.genericName,
               dosage: item.dosage || '',
               frequency: item.frequency || '',
               timing: item.timing || '',

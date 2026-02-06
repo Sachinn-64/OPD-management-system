@@ -38,6 +38,7 @@ export interface Doctor {
   phone?: string;
   email?: string;
   isActive: boolean;
+  customFrequencies?: string[]; // Custom frequency presets saved by doctor
   createdAt: Date;
   updatedAt: Date;
 }
@@ -187,7 +188,7 @@ export interface Visit {
   doctorId: string;
   visitDate: string; // ISO date string
   visitStatus: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-  
+
   // Embedded data for quick access
   chiefComplaint?: string;
   generalAdvice?: string;
@@ -195,14 +196,14 @@ export interface Visit {
   activityAdvice?: string;
   followUpPlan?: string;
   followUpDate?: string;
-  
+
   // References to sub-collections or embedded arrays
   vitals?: VitalRecord[];
   histories?: ClinicalHistory[];
   notes?: ClinicalNote[];
   diagnoses?: Diagnosis[];
   prescriptions?: Prescription[];
-  
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -211,6 +212,8 @@ export interface Medicine {
   id?: string;
   name: string;
   genericName?: string;
+  /** Item type from formulary (e.g. Tablet, Capsule, Injection) */
+  itemType?: string;
   category?: string;
   manufacturer?: string;
   strength?: string;

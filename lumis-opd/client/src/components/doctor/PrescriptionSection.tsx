@@ -1,17 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Trash2, Pill, Save, FolderOpen, X, FileText, Edit2, Loader2, History, Calendar, ChevronLeft, ChevronRight, Printer } from 'lucide-react';
+import { Plus, Trash2, Pill, Save, FolderOpen, X, FileText, Edit2, Loader2, History, Calendar, ChevronLeft, ChevronRight, ChevronDown, Printer } from 'lucide-react';
 import { consultationService, PrescriptionTemplate, TemplateItem } from '../../services/consultationService';
+import { doctorService } from '../../services/doctorService';
 import { PrescriptionPrint } from './PrescriptionPrint';
 import { MedicineAutocomplete } from './MedicineAutocomplete';
+import { FormSelectorModal } from './FormSelectorModal';
+import { MedicineForm, FORM_CONFIGS } from '../../config/prescriptionConfig';
+import { Medicine } from '../../services/medicineService';
 
 interface PrescriptionItem {
   id: string;
   drugName: string;
+  genericName?: string;
   dosage?: string;
   frequency: string;
   timing: string;
   durationDays: number;
+  /** Item type (from formulary / medicine record) */
+  itemType?: string;
+  form?: MedicineForm; // Medicine form type
+  content?: string; // Content/Strength (e.g., 500mg, 100ml)
 }
 
 interface PrescriptionSectionProps {
@@ -79,7 +88,51 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
   const [previousPrescriptions, setPreviousPrescriptions] = useState<any[]>([]);
   const [isLoadingPrevious, setIsLoadingPrevious] = useState(false);
   const [previousPage, setPreviousPage] = useState(1);
-  const previousLimit = 5;
+  const [expandedPrescriptions, setExpandedPrescriptions] = useState<Set<string>>(new Set());
+  const previousLimit = 10;
+
+  // Custom frequency presets state
+  const [customFrequencies, setCustomFrequencies] = useState<string[]>([]);
+
+  // Form selector modal state
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [pendingMedicine, setPendingMedicine] = useState<{ itemId: string; name: string } | null>(null);
+
+  // Load custom frequencies from doctor profile
+  useEffect(() => {
+    const loadCustomFrequencies = async () => {
+      if (!doctorId) return;
+      try {
+        const doctor = await doctorService.getById(doctorId);
+        if (doctor && doctor.customFrequencies) {
+          setCustomFrequencies(doctor.customFrequencies);
+        }
+      } catch (error) {
+        console.error('Failed to load custom frequencies:', error);
+      }
+    };
+    loadCustomFrequencies();
+  }, [doctorId]);
+
+  // Save custom frequency to doctor profile
+  const saveCustomFrequency = async (frequency: string) => {
+    if (!doctorId || !frequency.trim()) return;
+    const trimmedFreq = frequency.trim();
+
+    // Check if it already exists in defaults or customs
+    const defaultPresets = ['1-0-0', '0-0-1', '1-0-1', '1-1-1', '1-1-1-1', '2-2-2', '2-2-2-2', '1/2-1/2-1/2', '1/2-1/2-1/2-1/2', 'SOS', 'Stat'];
+    if (defaultPresets.includes(trimmedFreq) || customFrequencies.includes(trimmedFreq)) {
+      return; // Already exists
+    }
+
+    try {
+      const updatedFrequencies = [...customFrequencies, trimmedFreq];
+      await doctorService.update(doctorId, { customFrequencies: updatedFrequencies });
+      setCustomFrequencies(updatedFrequencies);
+    } catch (error) {
+      console.error('Failed to save custom frequency:', error);
+    }
+  };
 
   const handlePrint = () => {
     setShowPrintModal(false);
@@ -141,7 +194,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
       drugName: item.medicationName || item.drugName || '',
       dosage: item.dosage || '',
       frequency: item.frequency || '',
-      timing: item.beforeAfterFood || item.timing || 'After Food',
+      timing: item.beforeAfterFood || item.timing || 'Any Time',
       durationDays: item.durationDays || parseInt(item.duration?.match(/\d+/)?.[0] || '30') || 30,
     }));
 
@@ -154,6 +207,8 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
     const newItem: PrescriptionItem = {
       id: Date.now().toString(),
       drugName: '',
+      form: undefined,
+      content: '',
       dosage: '',
       frequency: '',
       timing: '',
@@ -174,6 +229,82 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
     const updated = items.map((item) => (item.id === id ? { ...item, [field]: value } : item));
     setItems(updated);
     onSave?.(updated);
+  };
+
+  /** Update both drugName and genericName in one shot (avoids race when selecting from dropdown). */
+  const setItemMedicine = (id: string, medicine: Medicine) => {
+    const isNewMedicine = (medicine as any)._isNewMedicine;
+    
+    // Only show modal for newly created medicines that need form selection
+    // Don't show for existing medicines even if they have form='OTHER'
+    if (isNewMedicine && (!medicine.form || medicine.form === 'OTHER')) {
+      // New medicine without form - show modal to select
+      // First update the medicine name so user sees it
+      const updated = items.map((item) =>
+        item.id === id ? { 
+          ...item, 
+          drugName: medicine.name, 
+          genericName: medicine.genericName,
+          itemType: medicine.itemType,
+        } : item
+      );
+      setItems(updated);
+      onSave?.(updated);
+      
+      // Then show modal for form selection
+      setPendingMedicine({ itemId: id, name: medicine.name });
+      setShowFormModal(true);
+    } else {
+      // Form already known from DB
+      const updated = items.map((item) =>
+        item.id === id ? { 
+          ...item, 
+          drugName: medicine.name, 
+          genericName: medicine.genericName,
+          itemType: medicine.itemType,
+          form: medicine.form,
+          content: medicine.strength || '',
+        } : item
+      );
+      setItems(updated);
+      onSave?.(updated);
+    }
+  };
+
+  // Handle form selection from modal
+  const handleFormSelect = (form: MedicineForm, content: string) => {
+    if (!pendingMedicine) return;
+    
+    const updated = items.map((item) =>
+      item.id === pendingMedicine.itemId ? { 
+        ...item, 
+        drugName: pendingMedicine.name, 
+        form,
+        content,
+      } : item
+    );
+    setItems(updated);
+    onSave?.(updated);
+    
+    setShowFormModal(false);
+    setPendingMedicine(null);
+  };
+
+  // Get form-specific frequencies for an item
+  const getFrequenciesForItem = (item: PrescriptionItem) => {
+    if (!item.form || item.form === 'OTHER') {
+      // Default frequencies for unknown forms
+      return frequencyPresets;
+    }
+    return FORM_CONFIGS[item.form].frequencies.map(f => f.value);
+  };
+
+  // Get timing options for an item
+  const getTimingOptionsForItem = (item: PrescriptionItem) => {
+    if (!item.form || item.form === 'OTHER') {
+      return timingOptions;
+    }
+    return FORM_CONFIGS[item.form].timingOptions.map(t => ({ label: t.en, value: t.value }));
   };
 
   // Apply a template - adds template items to current prescription
@@ -381,10 +512,16 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
               <div className="col-span-2">
                 <label className="block text-base font-semibold text-gray-900 mb-2">
                   Drug Name
+                  {item.form && (
+                    <span className="ml-2 px-2 py-0.5 text-xs font-medium rounded-full bg-emerald-100 text-emerald-700">
+                      {FORM_CONFIGS[item.form].icon} {item.form}
+                    </span>
+                  )}
                 </label>
                 <MedicineAutocomplete
                   value={item.drugName}
                   onChange={(val) => updateItem(item.id, 'drugName', val)}
+                  onSelectMedicine={(med) => setItemMedicine(item.id, med)}
                   placeholder="Type medicine name (e.g., Paracetamol)"
                 />
               </div>
@@ -405,17 +542,23 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
               <div>
                 <label className="block text-base font-semibold text-gray-900 mb-2">
                   Frequency
+                  {item.form && item.form !== 'OTHER' && (
+                    <span className="ml-2 text-xs text-emerald-600 font-normal">
+                      ({FORM_CONFIGS[item.form].label.en}-specific)
+                    </span>
+                  )}
                 </label>
                 <div className="space-y-2">
                   <input
                     type="text"
                     value={item.frequency}
                     onChange={(e) => updateItem(item.id, 'frequency', e.target.value)}
-                    placeholder="e.g., 1-1-1 or 1-1-2-1"
+                    placeholder={item.form && FORM_CONFIGS[item.form] ? FORM_CONFIGS[item.form].dosagePlaceholder.en : "e.g., 1-1-1"}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded text-base focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                   <div className="flex flex-wrap gap-1.5">
-                    {frequencyPresets.map((preset) => (
+                    {/* Form-specific frequency presets */}
+                    {getFrequenciesForItem(item).map((preset) => (
                       <button
                         key={preset}
                         type="button"
@@ -428,6 +571,35 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                         {preset}
                       </button>
                     ))}
+                    {/* Custom frequency presets */}
+                    {customFrequencies.map((preset) => (
+                      <button
+                        key={`custom-${preset}`}
+                        type="button"
+                        onClick={() => updateItem(item.id, 'frequency', preset)}
+                        className={`px-2 py-1 text-xs rounded border transition-all ${item.frequency === preset
+                          ? 'bg-purple-600 text-white border-purple-600'
+                          : 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100 hover:border-purple-400'
+                          }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                    {/* Save custom frequency button - only show if user typed something not in presets */}
+                    {item.frequency &&
+                      item.frequency.trim() !== '' &&
+                      !getFrequenciesForItem(item).includes(item.frequency) &&
+                      !customFrequencies.includes(item.frequency) && (
+                        <button
+                          type="button"
+                          onClick={() => saveCustomFrequency(item.frequency)}
+                          className="px-2 py-1 text-xs rounded border border-dashed border-purple-400 text-purple-600 hover:bg-purple-50 transition-all flex items-center gap-1"
+                          title="Save this frequency for future use"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Save "{item.frequency}"
+                        </button>
+                      )}
                   </div>
                 </div>
               </div>
@@ -442,7 +614,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                   className="w-full px-3 py-2.5 border border-gray-300 rounded text-base focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
                 >
                   <option value="">Select timing</option>
-                  {timingOptions.map((opt) => (
+                  {getTimingOptionsForItem(item).map((opt) => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
@@ -743,17 +915,25 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
         </div>
       )}
 
-      {/* Previous Prescriptions Modal */}
+      {/* Previous Prescriptions Modal - Compact Date List with Expandable Medicines */}
       {showPreviousModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50">
               <div className="flex items-center gap-2">
                 <History className="w-5 h-5 text-amber-600" />
                 <span className="font-bold text-gray-900">Previous Prescriptions</span>
+                {previousPrescriptions.length > 0 && (
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    {previousPrescriptions.length} record{previousPrescriptions.length !== 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
               <button
-                onClick={() => setShowPreviousModal(false)}
+                onClick={() => {
+                  setShowPreviousModal(false);
+                  setExpandedPrescriptions(new Set());
+                }}
                 className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded"
               >
                 <X className="w-5 h-5" />
@@ -773,70 +953,125 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                   <p className="text-sm mt-1">This patient has no prior prescription records.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {previousPrescriptions.map((prescription: any) => (
-                    <div
-                      key={prescription.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:border-amber-300 hover:bg-amber-50/30 transition-all"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-gray-400" />
-                          <span className="font-medium text-gray-900">
-                            {prescription.opdVisit?.visitDate
-                              ? new Date(prescription.opdVisit.visitDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                              : new Date(prescription.prescribedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                            }
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => applyPreviousPrescription(prescription)}
-                          disabled={!prescription.items || prescription.items.length === 0}
-                          className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Apply
-                        </button>
-                      </div>
+                <div className="space-y-2">
+                  {/* Sort prescriptions by date (most recent first) and map */}
+                  {[...previousPrescriptions]
+                    .sort((a, b) => {
+                      const dateA = new Date(a.opdVisit?.visitDate || a.prescribedAt || 0);
+                      const dateB = new Date(b.opdVisit?.visitDate || b.prescribedAt || 0);
+                      return dateB.getTime() - dateA.getTime();
+                    })
+                    .map((prescription: any) => {
+                      const isExpanded = expandedPrescriptions.has(prescription.id);
+                      const prescDate = prescription.opdVisit?.visitDate || prescription.prescribedAt;
+                      const formattedDate = prescDate
+                        ? new Date(prescDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : 'Unknown Date';
+                      const medicineCount = prescription.items?.length || 0;
 
-                      {prescription.items && prescription.items.length > 0 ? (
-                        <div className="space-y-1 mt-2">
-                          {prescription.items.map((item: any, idx: number) => (
-                            <div key={idx} className="flex items-center gap-2 text-sm text-gray-600">
-                              <Pill className="w-3 h-3 text-emerald-500" />
-                              <span>{item.medicationName || item.drugName}</span>
-                              {item.dosage && <span className="text-gray-400">• {item.dosage}</span>}
-                              <span className="text-gray-400">• {item.frequency}</span>
-                              <span className="text-gray-400">• {item.duration || `${item.durationDays} days`}</span>
+                      return (
+                        <div
+                          key={prescription.id}
+                          className={`border rounded-lg transition-all ${isExpanded
+                            ? 'border-amber-400 bg-amber-50/50'
+                            : 'border-gray-200 hover:border-amber-300'
+                            }`}
+                        >
+                          {/* Compact Date Row - Always Visible */}
+                          <div
+                            className="flex items-center justify-between px-4 py-3 cursor-pointer"
+                            onClick={() => {
+                              setExpandedPrescriptions(prev => {
+                                const next = new Set(prev);
+                                if (next.has(prescription.id)) {
+                                  next.delete(prescription.id);
+                                } else {
+                                  next.add(prescription.id);
+                                }
+                                return next;
+                              });
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              {/* Expand/Collapse Icon */}
+                              <ChevronDown
+                                className={`w-4 h-4 text-amber-600 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''
+                                  }`}
+                              />
+                              {/* Date */}
+                              <div className="flex items-center gap-2">
+                                <Calendar className="w-4 h-4 text-gray-400" />
+                                <span className="font-medium text-gray-900">{formattedDate}</span>
+                              </div>
+                              {/* Medicine count badge */}
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                                {medicineCount} medicine{medicineCount !== 1 ? 's' : ''}
+                              </span>
                             </div>
-                          ))}
+                            {/* Apply Button - Stop propagation to prevent toggle */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                applyPreviousPrescription(prescription);
+                              }}
+                              disabled={medicineCount === 0}
+                              className="px-3 py-1.5 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Apply
+                            </button>
+                          </div>
+
+                          {/* Expandable Medicines List */}
+                          {isExpanded && (
+                            <div className="px-4 pb-3 pt-1 border-t border-amber-200">
+                              {medicineCount > 0 ? (
+                                <div className="space-y-1.5 ml-7">
+                                  {prescription.items.map((item: any, idx: number) => (
+                                    <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                                      <Pill className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                                      <span className="font-medium">{item.medicationName || item.drugName}</span>
+                                      {item.dosage && <span className="text-gray-500">• {item.dosage}</span>}
+                                      <span className="text-gray-500">• {item.frequency}</span>
+                                      <span className="text-gray-500">• {item.duration || `${item.durationDays} days`}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-400 italic ml-7">No medicines recorded</p>
+                              )}
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <p className="text-sm text-gray-400 italic mt-2">No medicines added</p>
-                      )}
-                    </div>
-                  ))}
+                      );
+                    })}
                 </div>
               )}
             </div>
 
-            {/* Pagination */}
+            {/* Pagination - Only show if there might be more records */}
             {previousPrescriptions.length > 0 && (
               <div className="px-4 py-3 border-t border-gray-200 flex items-center justify-between bg-gray-50">
                 <button
-                  onClick={() => setPreviousPage(p => Math.max(1, p - 1))}
+                  onClick={() => {
+                    setPreviousPage(p => Math.max(1, p - 1));
+                    setExpandedPrescriptions(new Set());
+                  }}
                   disabled={previousPage === 1}
                   className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="w-4 h-4" />
-                  Previous
+                  Older
                 </button>
                 <span className="text-sm text-gray-500">Page {previousPage}</span>
                 <button
-                  onClick={() => setPreviousPage(p => p + 1)}
+                  onClick={() => {
+                    setPreviousPage(p => p + 1);
+                    setExpandedPrescriptions(new Set());
+                  }}
                   disabled={previousPrescriptions.length < previousLimit}
                   className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Next
+                  Newer
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -844,6 +1079,17 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
           </div>
         </div>
       )}
+
+      {/* Form Selector Modal */}
+      <FormSelectorModal
+        isOpen={showFormModal}
+        medicineName={pendingMedicine?.name || ''}
+        onSelect={handleFormSelect}
+        onCancel={() => {
+          setShowFormModal(false);
+          setPendingMedicine(null);
+        }}
+      />
     </div>
   );
 };
