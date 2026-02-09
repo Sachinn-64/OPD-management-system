@@ -223,13 +223,48 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
               margin: 0;
             }
             
+            /* Repeating header on every printed page - same formatting as first page */
+            .prescription-print-header {
+              position: fixed !important;
+              top: 0 !important;
+              left: 0 !important;
+              right: 0 !important;
+              z-index: 9999 !important;
+              background: white !important;
+              padding: 12px 25px 10px !important;
+              border-bottom: 1px solid #999 !important;
+              font-size: 13px !important;
+              box-sizing: border-box !important;
+            }
+            
             .prescription-print-container {
-              padding-top: 170px !important;    /* Space for header ~3.5cm */
-              padding-bottom: 70px !important;  /* Space for footer ~2.5cm */
+              padding-top: 140px !important;    /* Space for fixed header on every page */
+              padding-bottom: 50px !important;
               padding-left: 25px !important;
               padding-right: 25px !important;
               min-height: 100vh;
               box-sizing: border-box;
+            }
+            
+            /* Tighter spacing between prescription rows */
+            .prescription-print-container .medicine-row td {
+              padding-top: 4px !important;
+              padding-bottom: 4px !important;
+              vertical-align: top !important;
+            }
+            .prescription-print-container .medicine-row {
+              border-bottom-width: 1px !important;
+            }
+            .prescription-print-container table thead th {
+              padding-top: 6px !important;
+              padding-bottom: 6px !important;
+            }
+            /* Repeat prescription table header on each page when table spans pages */
+            .prescription-print-container table thead {
+              display: table-header-group !important;
+            }
+            .prescription-print-container table tr {
+              page-break-inside: avoid !important;
             }
             
             /* Prevent page breaks inside these elements */
@@ -238,25 +273,21 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
               break-inside: avoid !important;
             }
             
-            /* Allow page breaks between medicine rows if needed */
             .medicine-row {
               page-break-inside: avoid !important;
               break-inside: avoid !important;
             }
             
-            /* Keep section headers with their content */
             .section-header {
               page-break-after: avoid !important;
               break-after: avoid !important;
             }
             
-            /* Ensure advice section stays together */
             .advice-section {
               page-break-inside: avoid !important;
               break-inside: avoid !important;
             }
             
-            /* Follow up should not be split */
             .follow-up-section {
               page-break-inside: avoid !important;
               break-inside: avoid !important;
@@ -265,8 +296,36 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
         `}
       </style>
 
+      {/* Repeating header: shown at top of every printed page */}
+      <div className="hidden print:block prescription-print-header" style={{ fontSize: '13px', fontFamily: "'Poppins', sans-serif" }}>
+        <div className="flex justify-between items-start mb-0.5">
+          <div>
+            <span className="font-bold text-[13px]">Patient:</span>
+            <span className="font-semibold capitalize ml-1 text-[13px]">{currentPatient?.firstName} {p?.middleName} {currentPatient?.lastName}</span>
+            <span className="text-[12px] text-gray-600 ml-2">
+              {calculateAge(currentPatient?.dateOfBirth)} yrs / {currentPatient?.gender}
+              {currentPatient?.uhid && ` • UHID: ${currentPatient.uhid}`}
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="font-bold text-[13px]">Date:</span>
+            <span className="ml-1 text-[13px]">{today}</span>
+            {doctorInfo?.name && (
+              <div className="text-[12px] mt-0.5">
+                <span className="font-bold">Dr.</span> {doctorInfo.name}
+                {doctorInfo.specialty && ` (${doctorInfo.specialty})`}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="text-[11px] text-gray-600">
+          <span className="font-bold">Address:</span>
+          <span className="ml-1">{buildAddress()}</span>
+        </div>
+      </div>
+
       <div ref={ref} className="hidden print:block w-full text-black bg-white prescription-print-container" style={{ fontSize: '13px', fontFamily: "'Poppins', sans-serif" }}>
-        {/* Patient & Doctor Information Section */}
+        {/* Patient & Doctor block (visible in flow on first page; header above repeats on all pages) */}
         <div className="no-break border-b border-gray-400 pb-2 mb-3">
           {/* Row 1: Patient Name and Date */}
           <div className="flex justify-between items-start mb-1.5">
