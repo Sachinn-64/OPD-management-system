@@ -248,4 +248,5 @@ export const COLLECTIONS = {
   VISITS: 'visits',
   REFERRALS: 'referrals',
   MEDICINES: 'medicines',
+  PRESCRIPTION_TEMPLATES: 'prescription_templates',
 } as const;

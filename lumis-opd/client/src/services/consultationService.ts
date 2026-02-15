@@ -578,50 +578,59 @@ class ConsultationService {
     };
   }
 
-  // ============== TEMPLATE METHODS (simplified - stored per user) ==============
-  
-  private _templates: Map<string, { id: string; name: string; items: any[] }[]> = new Map();
+  // ============== TEMPLATE METHODS (persisted in Firestore) ==============
 
-  // Get prescription templates for current user
-  async getTemplates(): Promise<{ id: string; name: string; items: any[] }[]> {
-    // In a full implementation, these would be stored in Firestore
-    // For now, return from in-memory storage
-    const doctorId = 'current'; // Would get from auth context
-    return this._templates.get(doctorId) || [];
+  private getTemplateService() {
+    return new FirestoreService<{ id?: string; doctorId: string; name: string; items: any[] }>(
+      COLLECTIONS.PRESCRIPTION_TEMPLATES
+    );
+  }
+
+  // Get prescription templates for a doctor
+  async getTemplates(doctorId: string): Promise<{ id: string; name: string; items: any[] }[]> {
+    if (!doctorId) return [];
+    try {
+      const results = await this.getTemplateService().query('doctorId', '==', doctorId);
+      return results.map((r) => ({
+        id: r.id!,
+        name: r.name,
+        items: r.items || [],
+      }));
+    } catch (err) {
+      console.error('Error fetching templates:', err);
+      return [];
+    }
   }
 
   // Create prescription template
-  async createTemplate(data: { name: string; items: any[] }): Promise<{ id: string; name: string; items: any[] }> {
-    const doctorId = 'current';
-    const template = {
-      id: `template_${Date.now()}`,
+  async createTemplate(
+    doctorId: string,
+    data: { name: string; items: any[] }
+  ): Promise<{ id: string; name: string; items: any[] }> {
+    if (!doctorId) throw new Error('Doctor ID is required to save template');
+    const id = await this.getTemplateService().create({
+      doctorId,
       name: data.name,
       items: data.items,
-    };
-    
-    const existing = this._templates.get(doctorId) || [];
-    this._templates.set(doctorId, [...existing, template]);
-    
-    return template;
+    } as any);
+    return { id, name: data.name, items: data.items };
   }
 
   // Update prescription template
-  async updateTemplate(templateId: string, data: { name?: string; items?: any[] }): Promise<void> {
-    const doctorId = 'current';
-    const templates = this._templates.get(doctorId) || [];
-    const index = templates.findIndex(t => t.id === templateId);
-    
-    if (index !== -1) {
-      templates[index] = { ...templates[index], ...data };
-      this._templates.set(doctorId, templates);
-    }
+  async updateTemplate(
+    templateId: string,
+    data: { name?: string; items?: any[] }
+  ): Promise<void> {
+    const cleaned: Record<string, any> = {};
+    if (data.name !== undefined) cleaned.name = data.name;
+    if (data.items !== undefined) cleaned.items = data.items;
+    if (Object.keys(cleaned).length === 0) return;
+    return this.getTemplateService().update(templateId, cleaned);
   }
 
   // Delete prescription template
   async deleteTemplate(templateId: string): Promise<void> {
-    const doctorId = 'current';
-    const templates = this._templates.get(doctorId) || [];
-    this._templates.set(doctorId, templates.filter(t => t.id !== templateId));
+    return this.getTemplateService().delete(templateId);
   }
 }
 

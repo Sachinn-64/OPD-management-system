@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Trash2, Pill, Save, FolderOpen, X, FileText, Edit2, Loader2, History, Calendar, ChevronLeft, ChevronRight, ChevronDown, Printer } from 'lucide-react';
 import { consultationService, PrescriptionTemplate, TemplateItem } from '../../services/consultationService';
@@ -143,22 +143,23 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
     }, 100);
   };
 
-  // Load templates from API on mount
-  useEffect(() => {
-    loadTemplates();
-  }, []);
-
-  const loadTemplates = async () => {
+  const loadTemplates = useCallback(async () => {
+    if (!doctorId) return;
     setIsLoadingTemplates(true);
     try {
-      const data = await consultationService.getTemplates();
+      const data = await consultationService.getTemplates(doctorId);
       setTemplates(data || []);
     } catch (error) {
       console.error('Failed to load templates:', error);
     } finally {
       setIsLoadingTemplates(false);
     }
-  };
+  }, [doctorId]);
+
+  useEffect(() => {
+    if (doctorId) loadTemplates();
+    else setTemplates([]);
+  }, [doctorId, loadTemplates]);
 
   // Load previous prescriptions for this patient
   const loadPreviousPrescriptions = async () => {
@@ -345,6 +346,11 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
       durationDays: rest.durationDays,
     }));
 
+    if (!doctorId) {
+      alert('Unable to save template: doctor not found. Please refresh and try again.');
+      return;
+    }
+
     setIsSavingTemplate(true);
     try {
       if (editingTemplate) {
@@ -354,8 +360,8 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
           items: templateItems,
         });
       } else {
-        // Create new template
-        await consultationService.createTemplate({
+        // Create new template (persisted in Firestore)
+        await consultationService.createTemplate(doctorId, {
           name: newTemplateName,
           items: templateItems,
         });
