@@ -521,7 +521,15 @@ class ConsultationService {
       ...data.vitals,
     };
     
-    const updatedVitals = [...(visit.vitals || []), vitalRecord];
+    // Replace existing vitals for this visit instead of appending duplicates
+    const existingVitals = visit.vitals || [];
+    let updatedVitals;
+    if (existingVitals.length > 0) {
+      // Update the first (primary) vital record, keep any others
+      updatedVitals = existingVitals.map((v, idx) => idx === 0 ? vitalRecord : v);
+    } else {
+      updatedVitals = [vitalRecord];
+    }
     await service.update(data.visitId, { vitals: updatedVitals });
     return vitalRecord;
   }

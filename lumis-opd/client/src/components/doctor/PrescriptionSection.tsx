@@ -265,6 +265,8 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
           itemType: medicine.itemType,
           form: medicine.form,
           content: medicine.strength || '',
+          // Auto-fill dosage from medicine strength if not already set
+          dosage: item.dosage || medicine.strength || '',
         } : item
       );
       setItems(updated);
@@ -282,6 +284,8 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
         drugName: pendingMedicine.name, 
         form,
         content,
+        // Auto-fill dosage from content/strength if not already set
+        dosage: item.dosage || content || '',
       } : item
     );
     setItems(updated);
@@ -538,7 +542,7 @@ export const PrescriptionSection: React.FC<PrescriptionSectionProps> = ({ visitI
                 </label>
                 <input
                   type="text"
-                  value={item.dosage}
+                  value={item.dosage || ''}
                   onChange={(e) => updateItem(item.id, 'dosage', e.target.value)}
                   placeholder="e.g., 500mg or leave empty if in drug name"
                   className="w-full px-3 py-2.5 border border-gray-300 rounded text-base focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"

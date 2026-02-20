@@ -25,7 +25,7 @@ export const DiagnosisSection: React.FC<DiagnosisSectionProps> = ({
   onSave
 }) => {
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>(
-    initialDiagnoses || [{ id: Date.now().toString(), type: 'PROVISIONAL', icdCode: '', diagnosisText: '' }]
+    initialDiagnoses || [{ id: Date.now().toString(), type: 'FINAL', icdCode: '', diagnosisText: '' }]
   );
   const [assessment, setAssessment] = useState(initialAssessment || '');
   const [followUp, setFollowUp] = useState(initialFollowUp || '');
@@ -38,7 +38,7 @@ export const DiagnosisSection: React.FC<DiagnosisSectionProps> = ({
     if (initialDiagnoses && initialDiagnoses.length > 0) {
       setDiagnoses(initialDiagnoses);
     } else {
-      setDiagnoses([{ id: Date.now().toString(), type: 'PROVISIONAL', icdCode: '', diagnosisText: '' }]);
+      setDiagnoses([{ id: Date.now().toString(), type: 'FINAL', icdCode: '', diagnosisText: '' }]);
     }
     setAssessment(initialAssessment || '');
     setFollowUp(initialFollowUp || '');
@@ -51,7 +51,7 @@ export const DiagnosisSection: React.FC<DiagnosisSectionProps> = ({
   const addDiagnosis = () => {
     const newDiagnosis: Diagnosis = {
       id: Date.now().toString(),
-      type: 'PROVISIONAL',
+      type: 'FINAL',
       icdCode: '',
       diagnosisText: '',
     };

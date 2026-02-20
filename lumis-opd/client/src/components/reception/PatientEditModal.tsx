@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { X, User, Phone, MapPin, Heart, Edit } from 'lucide-react';
 import { patientService } from '../../services/patientService';

@@ -62,6 +62,8 @@ interface PrescriptionPrintProps {
   doctorInfo?: DoctorInfo;
   diagnoses?: DiagnosisInfo[];
   history?: HistoryInfo;
+  /** Optional patient override; when provided, used instead of consultation store */
+  patient?: any;
   showSections?: {
     chiefComplaint: boolean;
     vitals: boolean;
@@ -74,8 +76,9 @@ interface PrescriptionPrintProps {
   };
 }
 
-export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintProps>(({ items, assessment, followUp, printLanguage, generalAdvice, dietaryAdvice, activityAdvice, chiefComplaint, vitals, doctorInfo, showSections, diagnoses, history }, ref) => {
-  const { currentPatient } = useConsultationStore();
+export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintProps>(({ items, assessment, followUp, printLanguage, generalAdvice, dietaryAdvice, activityAdvice, chiefComplaint, vitals, doctorInfo, showSections, diagnoses, history, patient }, ref) => {
+  const { currentPatient: storePatient } = useConsultationStore();
+  const currentPatient = patient || storePatient;
 
   const calculateAge = (dobString?: string) => {
     if (!dobString) return '';

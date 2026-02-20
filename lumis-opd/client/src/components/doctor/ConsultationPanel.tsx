@@ -58,7 +58,7 @@ interface HistoryData {
 interface DiagnosisData {
   diagnoses: Array<{
     id: string;
-    type: 'PROVISIONAL' | 'FINAL' | 'DIFFERENTIAL';
+    type: 'FINAL' | 'PROVISIONAL' | 'DIFFERENTIAL';
     icdCode?: string;
     diagnosisText: string;
   }>;
@@ -266,7 +266,7 @@ export const ConsultationPanel: React.FC = () => {
   // Form data state - persists across tab switches
   const [notesData, setNotesData] = useState<NotesData>({});
   const [historyData, setHistoryData] = useState<HistoryData>({});
-  const [diagnosisData, setDiagnosisData] = useState<DiagnosisData>({ diagnoses: [], assessment: '', followUp: '' });
+  const [diagnosisData, setDiagnosisData] = useState<DiagnosisData>({ diagnoses: [], assessment: '', followUp: '1 month' });
   const [prescriptionData, setPrescriptionData] = useState<PrescriptionItem[]>([]);
   const [adviceData, setAdviceData] = useState<AdviceData>({});
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -279,7 +279,7 @@ export const ConsultationPanel: React.FC = () => {
         // Clear form data when no visit
         setNotesData({});
         setHistoryData({});
-        setDiagnosisData({ diagnoses: [], assessment: '', followUp: '' });
+        setDiagnosisData({ diagnoses: [], assessment: '', followUp: '1 month' });
         setPrescriptionData([]);
         setAdviceData({});
         return;
@@ -306,7 +306,7 @@ export const ConsultationPanel: React.FC = () => {
         // Clear form for new visits or visits from other days
         setNotesData({});
         setHistoryData({});
-        setDiagnosisData({ diagnoses: [], assessment: '', followUp: '' });
+        setDiagnosisData({ diagnoses: [], assessment: '', followUp: '1 month' });
         setPrescriptionData([]);
         setAdviceData({});
         return;
@@ -507,21 +507,7 @@ export const ConsultationPanel: React.FC = () => {
     },
   });
 
-  // Start consultation
-  const handleStartConsultation = () => {
-    // Use opdVisit.id if available, otherwise fall back to appointment id
-    const visitId = currentVisit?.opdVisit?.id || currentVisit?.id;
-    console.log('Starting consultation, visitId:', visitId);
-
-    if (visitId) {
-      updateStatusMutation.mutate({
-        visitId,
-        status: 'IN_PROGRESS',
-      });
-    } else {
-      console.error('No visit ID available to start consultation');
-    }
-  };
+  // Start consultation: status update handled where needed
 
   // Complete consultation
   const handleCompleteConsultation = async () => {
@@ -613,6 +599,7 @@ export const ConsultationPanel: React.FC = () => {
           items: validPrescriptions.map(item => ({
             medicationName: item.drugName,
             drugName: item.drugName, // Add drugName for backward compatibility
+            genericName: item.genericName || '',
             itemType: item.itemType,
             dosage: item.dosage || '',
             frequency: item.frequency,
@@ -648,7 +635,7 @@ export const ConsultationPanel: React.FC = () => {
       // Reset form data for next patient
       setNotesData({});
       setHistoryData({});
-      setDiagnosisData({ diagnoses: [], assessment: '', followUp: '' });
+      setDiagnosisData({ diagnoses: [], assessment: '', followUp: '1 month' });
       setPrescriptionData([]);
       setAdviceData({});
 

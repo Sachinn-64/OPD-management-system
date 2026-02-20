@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Search, User, Calendar, Download, FileText, X, Eye } from 'lucide-react';
+import { Search, User, Calendar, Download, FileText, X, Eye, Printer } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { doctorService } from '../../services/doctorService';
 import { consultationService } from '../../services/consultationService';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { PrescriptionPrint } from './PrescriptionPrint';
 
 export const PatientHistory: React.FC = () => {
   const { user } = useAuthStore();
@@ -14,6 +15,22 @@ export const PatientHistory: React.FC = () => {
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
   const [selectedVisit, setSelectedVisit] = useState<any>(null);
   const [showVisitModal, setShowVisitModal] = useState(false);
+
+  // Print Rx state
+  const [printVisit, setPrintVisit] = useState<any>(null);
+  const [showPrintOptionsModal, setShowPrintOptionsModal] = useState(false);
+  const [printLanguage, setPrintLanguage] = useState<'en' | 'hi' | 'mr' | 'kn'>('en');
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printSections, setPrintSections] = useState({
+    chiefComplaint: true,
+    vitals: true,
+    prescription: true,
+    assessment: true,
+    advice: true,
+    followUp: true,
+    diagnosis: false,
+    history: false,
+  });
 
   // Fetch doctor profile to get doctorId
   const { data: doctorProfile } = useQuery({
@@ -163,6 +180,106 @@ export const PatientHistory: React.FC = () => {
       age--;
     }
     return age;
+  };
+
+  // Extract vitals from a visit for printing
+  const getVisitPrintVitals = (visit: any) => {
+    const vitalsArray = visit.opdVisit?.vitals;
+    if (!vitalsArray || vitalsArray.length === 0) return undefined;
+    const latestVitals = vitalsArray[0];
+    const getVital = (name: string) => {
+      const detail = latestVitals.details?.find((d: any) => d.vitalName === name);
+      return detail ? detail.vitalValue : undefined;
+    };
+    let systolicBP = latestVitals.bloodPressureSystolic?.toString() || getVital('BP Systolic') || getVital('Systolic');
+    let diastolicBP = latestVitals.bloodPressureDiastolic?.toString() || getVital('BP Diastolic') || getVital('Diastolic');
+    const bpValue = getVital('Blood Pressure');
+    if (!systolicBP && !diastolicBP && bpValue) {
+      const bpStr = String(bpValue);
+      const bpMatch = bpStr.match(/(\d+)\s*\/\s*(\d+)/);
+      if (bpMatch) { systolicBP = bpMatch[1]; diastolicBP = bpMatch[2]; }
+    }
+    return {
+      heartRate: (latestVitals.heartRate?.toString() || getVital('Heart Rate'))?.toString(),
+      bloodPressure: bpValue?.toString(),
+      systolicBP: systolicBP?.toString(),
+      diastolicBP: diastolicBP?.toString(),
+      oxygenSaturation: (latestVitals.oxygenSaturation?.toString() || getVital('Oxygen Saturation'))?.toString(),
+      weight: (latestVitals.weight?.toString() || getVital('Weight'))?.toString(),
+      height: (latestVitals.height?.toString() || getVital('Height'))?.toString(),
+      bsa: getVital('BSA')?.toString(),
+      eGFR: getVital('eGFR')?.toString(),
+    };
+  };
+
+  // Extract prescription items from a visit for printing
+  const getVisitPrintItems = (visit: any) => {
+    const prescriptions = visit.opdVisit?.prescriptions;
+    if (!prescriptions || prescriptions.length === 0) return [];
+    return prescriptions.flatMap((p: any) =>
+      (p.items || []).map((item: any) => ({
+        id: item.id || crypto.randomUUID(),
+        drugName: item.medicationName || item.drugName || '',
+        genericName: item.genericName || '',
+        itemType: item.itemType || '',
+        form: item.form,
+        dosage: item.dosage || '',
+        frequency: item.frequency || '',
+        timing: item.beforeAfterFood || item.timing || '',
+        durationDays: item.durationDays || parseInt(item.duration) || 30,
+      }))
+    );
+  };
+
+  // Extract diagnoses from a visit for printing
+  const getVisitPrintDiagnoses = (visit: any) => {
+    const diagnoses = visit.opdVisit?.diagnoses;
+    if (!diagnoses || diagnoses.length === 0) return undefined;
+    return diagnoses.map((d: any) => ({
+      id: d.id || crypto.randomUUID(),
+      type: d.diagnosisType || 'PROVISIONAL',
+      icdCode: d.icdCode,
+      diagnosisText: d.diagnosisText || '',
+    }));
+  };
+
+  // Extract history from a visit for printing
+  const getVisitPrintHistory = (visit: any) => {
+    const histories = visit.opdVisit?.histories;
+    if (!histories || histories.length === 0) return undefined;
+    const getHistoryByType = (type: string) => histories.find((h: any) => h.historyType === type)?.historyText;
+    return {
+      presentIllness: getHistoryByType('PRESENT_ILLNESS'),
+      pastMedical: getHistoryByType('PAST_MEDICAL'),
+      family: getHistoryByType('FAMILY'),
+      allergies: getHistoryByType('ALLERGIES'),
+      addiction: getHistoryByType('ADDICTION'),
+    };
+  };
+
+  // Get doctor info for printing
+  const getDoctorInfo = () => {
+    if (!doctorProfile) return undefined;
+    const doc = doctorProfile as any;
+    return {
+      name: doc.fullName || `Dr. ${doc.firstName || ''} ${doc.lastName || ''}`.trim(),
+      specialty: doc.specialty || doc.specialization,
+      registrationNo: doc.registrationNumber || doc.registrationNo,
+    };
+  };
+
+  // Get assessment from visit notes
+  const getVisitAssessment = (visit: any) => {
+    const notes = visit.opdVisit?.notes;
+    if (!notes || notes.length === 0) return undefined;
+    const assessment = notes.find((n: any) => n.noteType === 'ASSESSMENT');
+    return assessment?.noteText;
+  };
+
+  // Start print flow for a visit
+  const startPrint = (visit: any) => {
+    setPrintVisit(visit);
+    setShowPrintOptionsModal(true);
   };
 
   if (isLoading) {
@@ -326,6 +443,14 @@ export const PatientHistory: React.FC = () => {
                             >
                               <Download className="w-4 h-4 mr-2" />
                               Download
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => startPrint(visit)}
+                            >
+                              <Printer className="w-4 h-4 mr-2" />
+                              Print Rx
                             </Button>
                           </div>
                         </div>
@@ -706,6 +831,14 @@ export const PatientHistory: React.FC = () => {
                   Download PDF Report
                 </Button>
                 <Button
+                  variant="primary"
+                  onClick={() => startPrint(selectedVisit)}
+                  className="flex-1"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print Rx
+                </Button>
+                <Button
                   variant="outline"
                   onClick={() => {
                     setShowVisitModal(false);
@@ -718,6 +851,127 @@ export const PatientHistory: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Print Options Modal */}
+      {showPrintOptionsModal && printVisit && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-[500px] shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Print Options</h3>
+              <button onClick={() => setShowPrintOptionsModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Section Toggles */}
+            <div className="mb-5">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Select Sections to Print</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { key: 'chiefComplaint', label: 'Chief Complaint' },
+                  { key: 'vitals', label: 'Vitals' },
+                  { key: 'prescription', label: 'Prescription' },
+                  { key: 'assessment', label: 'Assessment' },
+                  { key: 'advice', label: 'Advice' },
+                  { key: 'followUp', label: 'Follow Up' },
+                  { key: 'diagnosis', label: 'Diagnosis' },
+                  { key: 'history', label: 'History' },
+                ].map((section) => (
+                  <label
+                    key={section.key}
+                    className="flex items-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-gray-50 transition-all"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={printSections[section.key as keyof typeof printSections]}
+                      onChange={(e) => setPrintSections(prev => ({ ...prev, [section.key]: e.target.checked }))}
+                      className="w-4 h-4 text-slate-600 border-gray-300 rounded focus:ring-slate-500"
+                    />
+                    <span className="text-sm text-gray-700">{section.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Language Selection */}
+            <div className="mb-5">
+              <h4 className="text-sm font-semibold text-gray-700 mb-3">Print Language</h4>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { code: 'en', label: 'English' },
+                  { code: 'hi', label: 'Hindi (हिंदी)' },
+                  { code: 'mr', label: 'Marathi (मराठी)' },
+                  { code: 'kn', label: 'Kannada (ಕನ್ನಡ)' }
+                ].map((lang) => (
+                  <label
+                    key={lang.code}
+                    className={`flex items-center p-2 border rounded-lg cursor-pointer transition-all ${
+                      printLanguage === lang.code
+                        ? 'border-slate-600 bg-slate-50'
+                        : 'border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="historyPrintLanguage"
+                      checked={printLanguage === lang.code}
+                      onChange={() => setPrintLanguage(lang.code as 'en' | 'hi' | 'mr' | 'kn')}
+                      className="w-4 h-4 text-slate-600 border-gray-300 focus:ring-slate-500"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">{lang.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowPrintOptionsModal(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowPrintOptionsModal(false);
+                  setIsPrinting(true);
+                  setTimeout(() => {
+                    window.print();
+                    setIsPrinting(false);
+                  }, 100);
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700"
+              >
+                <Printer className="w-4 h-4" />
+                Print
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print Portal for Patient History */}
+      {isPrinting && printVisit && createPortal(
+        <div id="print-portal">
+          <PrescriptionPrint
+            items={printSections.prescription ? getVisitPrintItems(printVisit) : []}
+            assessment={printSections.assessment ? getVisitAssessment(printVisit) : undefined}
+            followUp={printSections.followUp ? printVisit.opdVisit?.followUpPlan : undefined}
+            printLanguage={printLanguage}
+            generalAdvice={printSections.advice ? printVisit.opdVisit?.generalAdvice : undefined}
+            dietaryAdvice={printSections.advice ? printVisit.opdVisit?.dietaryAdvice : undefined}
+            activityAdvice={printSections.advice ? printVisit.opdVisit?.activityAdvice : undefined}
+            chiefComplaint={printSections.chiefComplaint ? printVisit.opdVisit?.chiefComplaint : undefined}
+            vitals={printSections.vitals ? getVisitPrintVitals(printVisit) : undefined}
+            doctorInfo={getDoctorInfo()}
+            showSections={printSections}
+            diagnoses={printSections.diagnosis ? getVisitPrintDiagnoses(printVisit) : undefined}
+            history={printSections.history ? getVisitPrintHistory(printVisit) : undefined}
+            patient={selectedPatient?.patient}
+          />
         </div>,
         document.body
       )}

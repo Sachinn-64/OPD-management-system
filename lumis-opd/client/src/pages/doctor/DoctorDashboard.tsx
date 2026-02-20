@@ -32,7 +32,7 @@ export const DoctorDashboard: React.FC = () => {
   const queryClient = useQueryClient();
   const { user, logout } = useAuthStore();
   const { currentVisit, setTodayQueue, selectQueuePatient } = useConsultationStore();
-  const { isConnected, onNotification } = useSocket();
+  const { onNotification } = useSocket();
   const [activeView, setActiveView] = useState<'consultation' | 'history'>('consultation');
 
   // Profile edit modal state
