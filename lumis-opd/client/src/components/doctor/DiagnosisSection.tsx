@@ -14,7 +14,8 @@ interface DiagnosisSectionProps {
   initialDiagnoses?: Diagnosis[];
   initialAssessment?: string;
   initialFollowUp?: string;
-  onSave?: (data: { diagnoses: Diagnosis[]; assessment: string; followUp: string }) => void;
+  initialReferTo?: string;
+  onSave?: (data: { diagnoses: Diagnosis[]; assessment: string; followUp: string; referTo: string }) => void;
 }
 
 export const DiagnosisSection: React.FC<DiagnosisSectionProps> = ({
@@ -22,6 +23,7 @@ export const DiagnosisSection: React.FC<DiagnosisSectionProps> = ({
   initialDiagnoses,
   initialAssessment,
   initialFollowUp,
+  initialReferTo,
   onSave
 }) => {
   const [diagnoses, setDiagnoses] = useState<Diagnosis[]>(
@@ -29,6 +31,7 @@ export const DiagnosisSection: React.FC<DiagnosisSectionProps> = ({
   );
   const [assessment, setAssessment] = useState(initialAssessment || '');
   const [followUp, setFollowUp] = useState(initialFollowUp || '');
+  const [referTo, setReferTo] = useState(initialReferTo || '');
   const [activeVoice, setActiveVoice] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -42,10 +45,11 @@ export const DiagnosisSection: React.FC<DiagnosisSectionProps> = ({
     }
     setAssessment(initialAssessment || '');
     setFollowUp(initialFollowUp || '');
-  }, [initialDiagnoses, initialAssessment, initialFollowUp]);
+    setReferTo(initialReferTo || '');
+  }, [initialDiagnoses, initialAssessment, initialFollowUp, initialReferTo]);
 
-  const saveAll = (newDiagnoses: Diagnosis[], newAssessment: string, newFollowUp: string) => {
-    onSave?.({ diagnoses: newDiagnoses, assessment: newAssessment, followUp: newFollowUp });
+  const saveAll = (newDiagnoses: Diagnosis[], newAssessment: string, newFollowUp: string, newReferTo: string) => {
+    onSave?.({ diagnoses: newDiagnoses, assessment: newAssessment, followUp: newFollowUp, referTo: newReferTo });
   };
 
   const addDiagnosis = () => {
@@ -57,29 +61,34 @@ export const DiagnosisSection: React.FC<DiagnosisSectionProps> = ({
     };
     const updated = [...diagnoses, newDiagnosis];
     setDiagnoses(updated);
-    saveAll(updated, assessment, followUp);
+    saveAll(updated, assessment, followUp, referTo);
   };
 
   const removeDiagnosis = (id: string) => {
     const updated = diagnoses.filter((d) => d.id !== id);
     setDiagnoses(updated);
-    saveAll(updated, assessment, followUp);
+    saveAll(updated, assessment, followUp, referTo);
   };
 
   const updateDiagnosis = (id: string, field: keyof Diagnosis, value: any) => {
     const updated = diagnoses.map((d) => (d.id === id ? { ...d, [field]: value } : d));
     setDiagnoses(updated);
-    saveAll(updated, assessment, followUp);
+    saveAll(updated, assessment, followUp, referTo);
   };
 
   const updateAssessment = (value: string) => {
     setAssessment(value);
-    saveAll(diagnoses, value, followUp);
+    saveAll(diagnoses, value, followUp, referTo);
   };
 
   const updateFollowUp = (value: string) => {
     setFollowUp(value);
-    saveAll(diagnoses, assessment, value);
+    saveAll(diagnoses, assessment, value, referTo);
+  };
+
+  const updateReferTo = (value: string) => {
+    setReferTo(value);
+    saveAll(diagnoses, assessment, followUp, value);
   };
 
   const baseTextRef = useRef<{ assessment: string; followUp: string }>({ assessment: '', followUp: '' });
@@ -353,6 +362,20 @@ export const DiagnosisSection: React.FC<DiagnosisSectionProps> = ({
           placeholder="Follow-up schedule, review date, instructions..."
           rows={3}
           className="w-full px-3 py-2.5 border border-gray-300 rounded text-base focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+        />
+      </div>
+
+      {/* Refer To */}
+      <div>
+        <label className="block text-base font-semibold text-gray-900 mb-2">
+          Refer To
+        </label>
+        <input
+          type="text"
+          value={referTo}
+          onChange={(e) => updateReferTo(e.target.value)}
+          placeholder="Referral doctor/specialist name..."
+          className="w-full px-3 py-2.5 border border-gray-300 rounded text-base focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500"
         />
       </div>
     </div>

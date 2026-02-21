@@ -64,6 +64,7 @@ interface DiagnosisData {
   }>;
   assessment: string;
   followUp: string;
+  referTo: string;
 }
 
 interface PrescriptionItem {
@@ -266,7 +267,7 @@ export const ConsultationPanel: React.FC = () => {
   // Form data state - persists across tab switches
   const [notesData, setNotesData] = useState<NotesData>({});
   const [historyData, setHistoryData] = useState<HistoryData>({});
-  const [diagnosisData, setDiagnosisData] = useState<DiagnosisData>({ diagnoses: [], assessment: '', followUp: '1 month' });
+  const [diagnosisData, setDiagnosisData] = useState<DiagnosisData>({ diagnoses: [], assessment: '', followUp: '1 month', referTo: '' });
   const [prescriptionData, setPrescriptionData] = useState<PrescriptionItem[]>([]);
   const [adviceData, setAdviceData] = useState<AdviceData>({});
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -279,7 +280,7 @@ export const ConsultationPanel: React.FC = () => {
         // Clear form data when no visit
         setNotesData({});
         setHistoryData({});
-        setDiagnosisData({ diagnoses: [], assessment: '', followUp: '1 month' });
+        setDiagnosisData({ diagnoses: [], assessment: '', followUp: '1 month', referTo: '' });
         setPrescriptionData([]);
         setAdviceData({});
         return;
@@ -306,7 +307,7 @@ export const ConsultationPanel: React.FC = () => {
         // Clear form for new visits or visits from other days
         setNotesData({});
         setHistoryData({});
-        setDiagnosisData({ diagnoses: [], assessment: '', followUp: '1 month' });
+        setDiagnosisData({ diagnoses: [], assessment: '', followUp: '1 month', referTo: '' });
         setPrescriptionData([]);
         setAdviceData({});
         return;
@@ -426,6 +427,7 @@ export const ConsultationPanel: React.FC = () => {
           diagnoses: parsedDiagnoses,
           assessment: assessmentNote,
           followUp: followUpNote || currentVisit.opdVisit.followUpPlan || '',
+          referTo: (currentVisit.opdVisit as any).referTo || '',
         });
         setPrescriptionData(parsedPrescriptions);
         setAdviceData(adviceFromVisit);
@@ -611,13 +613,14 @@ export const ConsultationPanel: React.FC = () => {
         });
       }
 
-      // Save advice to OpdVisit
-      if (adviceData.generalAdvice || adviceData.dietaryAdvice || adviceData.activityAdvice || diagnosisData.followUp) {
+      // Save advice and referTo to OpdVisit
+      if (adviceData.generalAdvice || adviceData.dietaryAdvice || adviceData.activityAdvice || diagnosisData.followUp || diagnosisData.referTo) {
         await consultationService.updateVisitAdvice(visitId, {
           generalAdvice: adviceData.generalAdvice,
           dietaryAdvice: adviceData.dietaryAdvice,
           activityAdvice: adviceData.activityAdvice,
           followUpPlan: diagnosisData.followUp,
+          referTo: diagnosisData.referTo,
         });
       }
 
@@ -635,7 +638,7 @@ export const ConsultationPanel: React.FC = () => {
       // Reset form data for next patient
       setNotesData({});
       setHistoryData({});
-      setDiagnosisData({ diagnoses: [], assessment: '', followUp: '1 month' });
+      setDiagnosisData({ diagnoses: [], assessment: '', followUp: '1 month', referTo: '' });
       setPrescriptionData([]);
       setAdviceData({});
 
@@ -1087,6 +1090,7 @@ export const ConsultationPanel: React.FC = () => {
         dietaryAdvice: adviceData.dietaryAdvice,
         activityAdvice: adviceData.activityAdvice,
         followUpPlan: diagnosisData.followUp,
+        referTo: diagnosisData.referTo,
       });
 
       // For clinical history, notes, diagnoses, and prescriptions:
@@ -1453,6 +1457,7 @@ export const ConsultationPanel: React.FC = () => {
                     initialDiagnoses={diagnosisData.diagnoses}
                     initialAssessment={diagnosisData.assessment}
                     initialFollowUp={diagnosisData.followUp}
+                    initialReferTo={diagnosisData.referTo}
                     onSave={handleDiagnosisChange}
                   />
                 )}
@@ -2261,6 +2266,7 @@ export const ConsultationPanel: React.FC = () => {
             })) : []}
             assessment={printSections.assessment ? diagnosisData.assessment : undefined}
             followUp={printSections.followUp ? diagnosisData.followUp : undefined}
+            referTo={diagnosisData.referTo}
             printLanguage={printLanguage}
             generalAdvice={printSections.advice ? adviceData.generalAdvice : undefined}
             dietaryAdvice={printSections.advice ? adviceData.dietaryAdvice : undefined}

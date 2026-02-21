@@ -53,6 +53,7 @@ interface PrescriptionPrintProps {
   items: PrescriptionItem[];
   assessment?: string;
   followUp?: string;
+  referTo?: string;
   printLanguage: 'en' | 'hi' | 'mr' | 'kn';
   generalAdvice?: string;
   dietaryAdvice?: string;
@@ -76,7 +77,7 @@ interface PrescriptionPrintProps {
   };
 }
 
-export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintProps>(({ items, assessment, followUp, printLanguage, generalAdvice, dietaryAdvice, activityAdvice, chiefComplaint, vitals, doctorInfo, showSections, diagnoses, history, patient }, ref) => {
+export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintProps>(({ items, assessment, followUp, referTo, printLanguage, generalAdvice, dietaryAdvice, activityAdvice, chiefComplaint, vitals, doctorInfo, showSections, diagnoses, history, patient }, ref) => {
   const { currentPatient: storePatient } = useConsultationStore();
   const currentPatient = patient || storePatient;
 
@@ -587,8 +588,17 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
           </div>
         )}
 
-        {/* Signature Space with Doctor Info */}
-        <div className="mt-6 flex justify-end">
+        {/* Footer: Refer To (left) and Signature (right) */}
+        <div className="mt-6 flex justify-between items-end">
+          {/* Refer To - Left Side */}
+          {referTo && (
+            <div className="text-left">
+              <p className="text-[13px] font-semibold text-gray-700">Refer To:</p>
+              <p className="text-[14px] text-gray-800 mt-1">{referTo}</p>
+            </div>
+          )}
+          
+          {/* Signature - Right Side */}
           <div className="text-center">
             <div className="h-10 w-40 border-b border-gray-400"></div>
             {doctorInfo?.name && (

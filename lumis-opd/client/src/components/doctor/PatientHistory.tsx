@@ -960,6 +960,7 @@ export const PatientHistory: React.FC = () => {
             items={printSections.prescription ? getVisitPrintItems(printVisit) : []}
             assessment={printSections.assessment ? getVisitAssessment(printVisit) : undefined}
             followUp={printSections.followUp ? printVisit.opdVisit?.followUpPlan : undefined}
+            referTo={printVisit.opdVisit?.referTo}
             printLanguage={printLanguage}
             generalAdvice={printSections.advice ? printVisit.opdVisit?.generalAdvice : undefined}
             dietaryAdvice={printSections.advice ? printVisit.opdVisit?.dietaryAdvice : undefined}

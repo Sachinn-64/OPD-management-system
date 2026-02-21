@@ -404,6 +404,7 @@ class ConsultationService {
       followUpPlan?: string;
       followUpDate?: string;
       chiefComplaint?: string;
+      referTo?: string;
     }
   ): Promise<void> {
     // Filter out undefined values - Firestore doesn't accept undefined
