@@ -329,8 +329,8 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
       </div>
 
       <div ref={ref} className="hidden print:block w-full text-black bg-white prescription-print-container" style={{ fontSize: '13px', fontFamily: "'Poppins', sans-serif" }}>
-        {/* Patient & Doctor block (visible in flow on first page; header above repeats on all pages) */}
-        <div className="no-break border-b border-gray-400 pb-2 mb-3">
+        {/* Patient & Doctor block - HIDDEN ON PRINT (fixed header above handles all pages) */}
+        <div className="no-break border-b border-gray-400 pb-2 mb-3 print:hidden">
           {/* Row 1: Patient Name and Date */}
           <div className="flex justify-between items-start mb-1.5">
             <div className="flex-1">
