@@ -227,23 +227,9 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
               margin: 0;
             }
             
-            /* Repeating header on every printed page - same formatting as first page */
-            .prescription-print-header {
-              position: fixed !important;
-              top: 0 !important;
-              left: 0 !important;
-              right: 0 !important;
-              z-index: 9999 !important;
-              background: white !important;
-              padding: 12px 25px 10px !important;
-              border-bottom: 1px solid #999 !important;
-              font-size: 13px !important;
-              box-sizing: border-box !important;
-            }
-            
             .prescription-print-container {
-              padding-top: 140px !important;    /* Space for fixed header on every page */
-              padding-bottom: 50px !important;
+              padding-top: 170px !important;    /* Space for header ~3.5cm */
+              padding-bottom: 70px !important;  /* Space for footer ~2.5cm */
               padding-left: 25px !important;
               padding-right: 25px !important;
               min-height: 100vh;
@@ -300,37 +286,9 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
         `}
       </style>
 
-      {/* Repeating header: shown at top of every printed page */}
-      <div className="hidden print:block prescription-print-header" style={{ fontSize: '13px', fontFamily: "'Poppins', sans-serif" }}>
-        <div className="flex justify-between items-start mb-0.5">
-          <div>
-            <span className="font-bold text-[13px]">Patient:</span>
-            <span className="font-semibold capitalize ml-1 text-[13px]">{currentPatient?.firstName} {p?.middleName} {currentPatient?.lastName}</span>
-            <span className="text-[12px] text-gray-600 ml-2">
-              {calculateAge(currentPatient?.dateOfBirth)} yrs / {currentPatient?.gender}
-              {currentPatient?.uhid && ` • UHID: ${currentPatient.uhid}`}
-            </span>
-          </div>
-          <div className="text-right">
-            <span className="font-bold text-[13px]">Date:</span>
-            <span className="ml-1 text-[13px]">{today}</span>
-            {doctorInfo?.name && (
-              <div className="text-[12px] mt-0.5">
-                <span className="font-bold">Dr.</span> {doctorInfo.name}
-                {doctorInfo.specialty && ` (${doctorInfo.specialty})`}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="text-[11px] text-gray-600">
-          <span className="font-bold">Address:</span>
-          <span className="ml-1">{buildAddress()}</span>
-        </div>
-      </div>
-
       <div ref={ref} className="hidden print:block w-full text-black bg-white prescription-print-container" style={{ fontSize: '13px', fontFamily: "'Poppins', sans-serif" }}>
-        {/* Patient & Doctor block - HIDDEN ON PRINT (fixed header above handles all pages) */}
-        <div className="no-break border-b border-gray-400 pb-2 mb-3 print:hidden">
+        {/* Patient & Doctor block */}
+        <div className="no-break border-b border-gray-400 pb-2 mb-3">
           {/* Row 1: Patient Name and Date */}
           <div className="flex justify-between items-start mb-1.5">
             <div className="flex-1">
@@ -599,7 +557,7 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
           )}
           
           {/* Signature - Right Side */}
-          <div className="text-center">
+          <div className="text-center ml-auto">
             <div className="h-10 w-40 border-b border-gray-400"></div>
             {doctorInfo?.name && (
               <p className="text-[14px] font-semibold text-gray-800 mt-1">{doctorInfo.name}</p>
