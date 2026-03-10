@@ -102,7 +102,7 @@ export const PatientHistory: React.FC = () => {
 
       // Header
       doc.setFont('helvetica', 'bold');
-      centerText('LUMIS HEALTHCARE', yPos, 16);
+      centerText('Raghoji Hospital', yPos, 16);
       yPos += 8;
       doc.setFont('helvetica', 'normal');
       centerText('Consultation Report', yPos, 12);

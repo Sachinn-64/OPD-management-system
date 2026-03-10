@@ -735,7 +735,7 @@ export const ConsultationPanel: React.FC = () => {
 
       // Header
       doc.setFont('helvetica', 'bold');
-      centerText('LUMIS HEALTHCARE', yPos, 16);
+      centerText('Raghoji Hospital', yPos, 16);
       yPos += 8;
       doc.setFont('helvetica', 'normal');
       centerText('Consultation Report', yPos, 12);
@@ -864,7 +864,7 @@ export const ConsultationPanel: React.FC = () => {
 
     // Header
     doc.setFont('helvetica', 'bold');
-    centerText('LUMIS HEALTHCARE', 20, 18);
+    centerText('Raghoji Hospital', 20, 18);
     doc.setFont('helvetica', 'normal');
     centerText('Medical Certificate', 30, 14);
 
@@ -965,7 +965,7 @@ export const ConsultationPanel: React.FC = () => {
 
     // Header
     doc.setFont('helvetica', 'bold');
-    centerText('LUMIS HEALTHCARE', 20, 18);
+    centerText('Raghoji Hospital', 20, 18);
     doc.setFont('helvetica', 'normal');
     centerText('Referral Letter', 30, 14);
 

@@ -444,11 +444,10 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
                 <thead>
                   <tr className="border-b border-gray-300 bg-gray-50">
                     <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '5%' }}>#</th>
-                    <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '35%' }}>{t('medicine', 'Medicine Name')}</th>
-                    <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '15%' }}>Item Type</th>
-                    <th className="text-center py-1.5 px-2 font-semibold text-gray-600" style={{ width: '18%' }}>{t('frequency', 'Dose')}</th>
+                    <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '45%' }}>{t('medicine', 'Medicine Name')}</th>
+                    <th className="text-center py-1.5 px-2 font-semibold text-gray-600" style={{ width: '20%' }}>{t('frequency', 'Dose')}</th>
                     <th className="text-center py-1.5 px-2 font-semibold text-gray-600" style={{ width: '12%' }}>{t('duration', 'Days')}</th>
-                    <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '20%' }}>Instructions</th>
+                    <th className="text-left py-1.5 px-2 font-semibold text-gray-600" style={{ width: '18%' }}>Instructions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -478,19 +477,6 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
                           </div>
                         </td>
 
-                        {/* Item type column: ItemType from Excel, or fallback from form (Tablet, Capsule, etc.) */}
-                        <td className="py-2 px-2 align-top text-gray-700">
-                          {(() => {
-                            const displayType =
-                              item.itemType ||
-                              (item.form ? FORM_CONFIGS[item.form].label.en : undefined);
-                            return displayType ? (
-                              <span className="text-[12px]">
-                                {displayType}
-                              </span>
-                            ) : null;
-                          })()}
-                        </td>
                         {/* Dose column: English first, translation below */}
                         <td className="py-2 px-2 text-center text-gray-700 align-top">
                           <div>{item.frequency}</div>
@@ -560,7 +546,13 @@ export const PrescriptionPrint = forwardRef<HTMLDivElement, PrescriptionPrintPro
           <div className="text-center ml-auto">
             <div className="h-10 w-40 border-b border-gray-400"></div>
             {doctorInfo?.name && (
-              <p className="text-[14px] font-semibold text-gray-800 mt-1">{doctorInfo.name}</p>
+              <p className="text-[14px] font-semibold text-gray-800 mt-1">
+                {(() => {
+                  const name = doctorInfo.name.replace(/^dr\.?\s*/i, '').trim();
+                  const capitalized = name.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+                  return `Dr.${capitalized}`;
+                })()}
+              </p>
             )}
             {doctorInfo?.specialty && (
               <p className="text-[12px] text-gray-600">{doctorInfo.specialty}</p>
