@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Edit3,
   Save,
+  Award,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useConsultationStore } from '../../store/consultationStore';
@@ -26,6 +27,7 @@ import { Button } from '../../components/ui/Button';
 import { PatientQueue } from '../../components/doctor/PatientQueue';
 import { ConsultationPanel } from '../../components/doctor/ConsultationPanel';
 import { PatientHistory } from '../../components/doctor/PatientHistory';
+import { MedicalCertificate } from '../../components/doctor/MedicalCertificate';
 import { HOSPITAL_INFO } from '../../config/constants';
 
 export const DoctorDashboard: React.FC = () => {
@@ -34,6 +36,7 @@ export const DoctorDashboard: React.FC = () => {
   const { currentVisit, setTodayQueue, selectQueuePatient } = useConsultationStore();
   const { onNotification } = useSocket();
   const [activeView, setActiveView] = useState<'consultation' | 'history'>('consultation');
+  const [showStandaloneCertificate, setShowStandaloneCertificate] = useState(false);
 
   // Profile edit modal state
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -344,17 +347,35 @@ export const DoctorDashboard: React.FC = () => {
               {currentVisit ? (
                 <ConsultationPanel />
               ) : (
-                <Card className="h-64 lg:h-[calc(100vh-280px)] flex items-center justify-center">
-                  <div className="text-center">
-                    <Activity className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                      No Patient Selected
-                    </h3>
-                    <p className="text-gray-500">
-                      Select a patient from the queue to start consultation
-                    </p>
-                  </div>
-                </Card>
+                <div className="space-y-4">
+                  <Card className="flex items-center justify-center py-10">
+                    <div className="text-center">
+                      <Activity className="w-14 h-14 text-gray-300 mx-auto mb-3" />
+                      <h3 className="text-lg font-semibold text-gray-700 mb-1">
+                        No Patient Selected
+                      </h3>
+                      <p className="text-gray-400 text-sm mb-4">
+                        Select a patient from the queue to start consultation
+                      </p>
+                      <button
+                        onClick={() => setShowStandaloneCertificate(!showStandaloneCertificate)}
+                        className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm ${
+                          showStandaloneCertificate
+                            ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                            : 'bg-purple-600 text-white hover:bg-purple-700'
+                        }`}
+                      >
+                        <Award className="w-4 h-4" />
+                        {showStandaloneCertificate ? 'Hide Medical Certificate' : 'Medical Certificate'}
+                      </button>
+                    </div>
+                  </Card>
+                  {showStandaloneCertificate && (
+                    <Card className="lg:max-h-[calc(100vh-420px)] overflow-y-auto">
+                      <MedicalCertificate />
+                    </Card>
+                  )}
+                </div>
               )}
             </div>
           </div>

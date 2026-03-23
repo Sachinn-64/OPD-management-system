@@ -40,6 +40,7 @@ import { DiagnosisSection } from './DiagnosisSection';
 import { PrescriptionSection } from './PrescriptionSection';
 import { AdviceSection } from './AdviceSection';
 import { PrescriptionPrint } from './PrescriptionPrint';
+import { MedicalCertificate } from './MedicalCertificate';
 
 // Types for form data
 interface NotesData {
@@ -200,16 +201,8 @@ export const ConsultationPanel: React.FC = () => {
     };
   };
 
-  const [activeTab, setActiveTab] = useState<'notes' | 'history' | 'diagnosis' | 'prescription' | 'advice'>('notes');
-  const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'notes' | 'history' | 'diagnosis' | 'prescription' | 'advice' | 'certificate'>('notes');
   const [showReferralModal, setShowReferralModal] = useState(false);
-
-  // Certificate form state
-  const [certificateType, setCertificateType] = useState<'fitness' | 'leave' | 'sick'>('fitness');
-  const [certificateFromDate, setCertificateFromDate] = useState(new Date().toISOString().split('T')[0]);
-  const [certificateToDate, setCertificateToDate] = useState(new Date().toISOString().split('T')[0]);
-  const [certificateReason, setCertificateReason] = useState('');
-  const [certificateRemarks, setCertificateRemarks] = useState('');
 
   // Referral form state
   const [referralType, setReferralType] = useState<'specialist' | 'hospital' | 'higher'>('specialist');
@@ -848,106 +841,7 @@ export const ConsultationPanel: React.FC = () => {
     }
   };
 
-  // Generate Medical Certificate PDF
-  const generateCertificatePDF = () => {
-    if (!currentPatient) return;
-
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-
-    // Helper function for centered text
-    const centerText = (text: string, y: number, fontSize: number = 12) => {
-      doc.setFontSize(fontSize);
-      const textWidth = doc.getTextWidth(text);
-      doc.text(text, (pageWidth - textWidth) / 2, y);
-    };
-
-    // Header
-    doc.setFont('helvetica', 'bold');
-    centerText('Raghoji Hospital', 20, 18);
-    doc.setFont('helvetica', 'normal');
-    centerText('Medical Certificate', 30, 14);
-
-    // Date
-    doc.setFontSize(10);
-    doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}`, 20, 45);
-
-    // Certificate type
-    const certTypeLabels: Record<string, string> = {
-      fitness: 'Medical Fitness Certificate',
-      leave: 'Medical Leave Certificate',
-      sick: 'Sick Leave Certificate',
-    };
-
-    doc.setFont('helvetica', 'bold');
-    centerText(certTypeLabels[certificateType] || 'Medical Certificate', 60, 14);
-
-    // Body
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(11);
-
-    const patientName = `${currentPatient.firstName} ${currentPatient.lastName}`;
-    const patientAge = currentPatient.dateOfBirth ? calculateAge(currentPatient.dateOfBirth) : 'N/A';
-    const patientGender = currentPatient.gender || 'N/A';
-    const uhid = currentPatient.uhid || 'N/A';
-
-    let bodyText = '';
-
-    if (certificateType === 'fitness') {
-      bodyText = `This is to certify that ${patientName}, aged ${patientAge} years, gender ${patientGender} (UHID: ${uhid}), was examined on ${new Date().toLocaleDateString('en-IN')} and is found to be medically fit.`;
-    } else {
-      bodyText = `This is to certify that ${patientName}, aged ${patientAge} years, gender ${patientGender} (UHID: ${uhid}), is under my medical care and requires rest from ${certificateFromDate} to ${certificateToDate}.`;
-    }
-
-    const splitBody = doc.splitTextToSize(bodyText, pageWidth - 40);
-    doc.text(splitBody, 20, 80);
-
-    let yPos = 80 + (splitBody.length * 6);
-
-    // Reason/Diagnosis
-    if (certificateReason) {
-      yPos += 15;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Diagnosis/Reason:', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      const splitReason = doc.splitTextToSize(certificateReason, pageWidth - 40);
-      doc.text(splitReason, 20, yPos + 7);
-      yPos += 7 + (splitReason.length * 6);
-    }
-
-    // Remarks
-    if (certificateRemarks) {
-      yPos += 10;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Remarks:', 20, yPos);
-      doc.setFont('helvetica', 'normal');
-      const splitRemarks = doc.splitTextToSize(certificateRemarks, pageWidth - 40);
-      doc.text(splitRemarks, 20, yPos + 7);
-      yPos += 7 + (splitRemarks.length * 6);
-    }
-
-    // Signature area
-    yPos = Math.max(yPos + 30, 180);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Doctor\'s Signature', pageWidth - 60, yPos);
-    doc.line(pageWidth - 80, yPos - 5, pageWidth - 20, yPos - 5);
-
-    // Footer
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'italic');
-    centerText('This certificate is valid for the mentioned period only.', 280, 8);
-
-    // Download
-    doc.save(`certificate_${currentPatient.uhid}_${new Date().toISOString().split('T')[0]}.pdf`);
-
-    // Reset form and close modal
-    setCertificateType('fitness');
-    setCertificateFromDate(new Date().toISOString().split('T')[0]);
-    setCertificateToDate(new Date().toISOString().split('T')[0]);
-    setCertificateReason('');
-    setCertificateRemarks('');
-    setShowCertificateModal(false);
-  };
+  // Certificate tab is now handled by MedicalCertificate component
 
   // Generate Referral Letter PDF
   const generateReferralPDF = () => {
@@ -1192,6 +1086,7 @@ export const ConsultationPanel: React.FC = () => {
     { id: 'diagnosis', label: 'Diagnosis', icon: Stethoscope, color: 'purple' },
     { id: 'prescription', label: 'Prescription', icon: Pill, color: 'orange' },
     { id: 'advice', label: 'Advice', icon: Activity, color: 'cyan' },
+    { id: 'certificate', label: 'Certificate', icon: Award, color: 'purple' },
   ];
 
   const isFirstPatient = selectedQueueIndex === 0;
@@ -1349,7 +1244,7 @@ export const ConsultationPanel: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowCertificateModal(true)}
+                onClick={() => setActiveTab('certificate')}
                 className="border-purple-400 text-purple-600 hover:bg-purple-50 text-xs px-1.5 sm:px-2 py-1"
               >
                 <Award className="w-3 h-3 sm:mr-1" />
@@ -1481,6 +1376,9 @@ export const ConsultationPanel: React.FC = () => {
                     initialData={adviceData}
                     onSave={handleAdviceChange}
                   />
+                )}
+                {activeTab === 'certificate' && (
+                  <MedicalCertificate patient={currentPatient} />
                 )}
               </>
             )}
@@ -1884,118 +1782,7 @@ export const ConsultationPanel: React.FC = () => {
         </div>
       )}
 
-      {/* Medical Certificate Modal */}
-      {showCertificateModal && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Award className="w-6 h-6 text-purple-600" />
-                Medical Certificate
-              </h3>
-              <button
-                onClick={() => setShowCertificateModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 mb-6">
-                <p className="text-sm text-purple-900">
-                  📋 Generate medical fitness or leave certificate for <strong>{currentPatient?.firstName} {currentPatient?.lastName}</strong>
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Certificate Type
-                  </label>
-                  <select
-                    value={certificateType}
-                    onChange={(e) => setCertificateType(e.target.value as 'fitness' | 'leave' | 'sick')}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  >
-                    <option value="fitness">Medical Fitness Certificate</option>
-                    <option value="leave">Medical Leave Certificate</option>
-                    <option value="sick">Sick Leave Certificate</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
-                      From Date
-                    </label>
-                    <input
-                      type="date"
-                      value={certificateFromDate}
-                      onChange={(e) => setCertificateFromDate(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
-                      To Date
-                    </label>
-                    <input
-                      type="date"
-                      value={certificateToDate}
-                      onChange={(e) => setCertificateToDate(e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Reason / Diagnosis
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={certificateReason}
-                    onChange={(e) => setCertificateReason(e.target.value)}
-                    placeholder="Enter the medical reason..."
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Additional Remarks (Optional)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={certificateRemarks}
-                    onChange={(e) => setCertificateRemarks(e.target.value)}
-                    placeholder="Any additional remarks..."
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-purple-500 focus:border-purple-500 resize-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200">
-                <Button
-                  variant="primary"
-                  onClick={generateCertificatePDF}
-                  className="flex-1 bg-purple-600 hover:bg-purple-700"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Generate & Download
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowCertificateModal(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Medical Certificate is now a tab — see certificate tab content above */}
 
       {/* Referral Modal */}
       {showReferralModal && (
