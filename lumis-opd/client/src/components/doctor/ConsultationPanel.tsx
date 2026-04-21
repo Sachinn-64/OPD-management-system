@@ -2018,18 +2018,149 @@ export const ConsultationPanel: React.FC = () => {
                 Cancel
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   setShowPrintModal(false);
+
+                  // Save the consultation record (same as Complete button) if not already completed
+                  const visitStatus = currentVisit?.opdVisit?.visitStatus;
+                  if (visitStatus === 'IN_PROGRESS' || visitStatus === 'OPEN') {
+                    try {
+                      setIsCompleting(true);
+                      const visitId = currentVisit?.opdVisit?.id;
+                      if (visitId && currentPatient) {
+                        const patientId = currentPatient.id;
+
+                        // Save clinical notes
+                        if (notesData.chiefComplaint) {
+                          await consultationService.createHistory({
+                            opdVisitId: visitId,
+                            historyType: 'CHIEF_COMPLAINT',
+                            description: notesData.chiefComplaint,
+                          });
+                        }
+                        if (notesData.examination) {
+                          await consultationService.createNote({
+                            visitId,
+                            patientId,
+                            noteType: 'EXAMINATION',
+                            content: notesData.examination,
+                          });
+                        }
+
+                        // Save clinical history entries
+                        const historyTypes = [
+                          { key: 'presentIllness', type: 'PRESENT_ILLNESS' },
+                          { key: 'pastMedical', type: 'PAST_MEDICAL' },
+                          { key: 'family', type: 'FAMILY' },
+                          { key: 'allergies', type: 'ALLERGY' },
+                          { key: 'addiction', type: 'ADDICTION' },
+                        ] as const;
+
+                        for (const { key, type } of historyTypes) {
+                          const value = historyData[key as keyof HistoryData];
+                          if (value && value.trim()) {
+                            await consultationService.createHistory({
+                              opdVisitId: visitId,
+                              historyType: type,
+                              description: value,
+                            });
+                          }
+                        }
+
+                        // Save diagnoses
+                        for (const diagnosis of diagnosisData.diagnoses) {
+                          if (diagnosis.diagnosisText.trim()) {
+                            await consultationService.createDiagnosis({
+                              visitId,
+                              patientId,
+                              diagnosisName: diagnosis.diagnosisText,
+                              diagnosisType: diagnosis.type,
+                              diagnosisCode: diagnosis.icdCode,
+                            });
+                          }
+                        }
+
+                        // Save assessment and follow-up as clinical notes
+                        if (diagnosisData.assessment) {
+                          await consultationService.createNote({
+                            visitId,
+                            patientId,
+                            noteType: 'ASSESSMENT',
+                            content: diagnosisData.assessment,
+                          });
+                        }
+                        if (diagnosisData.followUp) {
+                          await consultationService.createNote({
+                            visitId,
+                            patientId,
+                            noteType: 'FOLLOW_UP',
+                            content: diagnosisData.followUp,
+                          });
+                        }
+
+                        // Save prescriptions
+                        const validPrescriptions = prescriptionData.filter(item => item.drugName && item.drugName.trim());
+                        if (validPrescriptions.length > 0) {
+                          await consultationService.createPrescription({
+                            visitId,
+                            patientId,
+                            items: validPrescriptions.map(item => ({
+                              medicationName: item.drugName,
+                              drugName: item.drugName,
+                              genericName: item.genericName || '',
+                              itemType: item.itemType,
+                              dosage: item.dosage || '',
+                              frequency: item.frequency,
+                              duration: item.durationDays ? `${item.durationDays} days` : '30 days',
+                              durationDays: item.durationDays || 30,
+                              instructions: item.instructions,
+                              beforeAfterFood: item.timing,
+                            })),
+                          });
+                        }
+
+                        // Save advice and referTo to OpdVisit
+                        if (adviceData.generalAdvice || adviceData.dietaryAdvice || adviceData.activityAdvice || diagnosisData.followUp || diagnosisData.referTo) {
+                          await consultationService.updateVisitAdvice(visitId, {
+                            generalAdvice: adviceData.generalAdvice,
+                            dietaryAdvice: adviceData.dietaryAdvice,
+                            activityAdvice: adviceData.activityAdvice,
+                            followUpPlan: diagnosisData.followUp,
+                            referTo: diagnosisData.referTo,
+                          });
+                        }
+
+                        // Mark visit as completed
+                        await updateStatusMutation.mutateAsync({
+                          visitId: visitId,
+                          status: 'COMPLETED',
+                        });
+
+                        // Invalidate queries to refresh data
+                        await queryClient.invalidateQueries({ queryKey: ['todayQueue'] });
+                        await queryClient.invalidateQueries({ queryKey: ['patientHistory'] });
+                        await queryClient.invalidateQueries({ queryKey: ['patientVisits'] });
+                      }
+                    } catch (error: any) {
+                      console.error('Error saving consultation before print:', error);
+                      alert(`Failed to save consultation: ${error?.message || 'Unknown error'}. Printing anyway.`);
+                    } finally {
+                      setIsCompleting(false);
+                    }
+                  }
+
+                  // Proceed with printing
                   setIsPrinting(true);
                   setTimeout(() => {
                     window.print();
                     setIsPrinting(false);
                   }, 100);
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700"
+                disabled={isCompleting}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Printer className="w-4 h-4" />
-                Print
+                {isCompleting ? 'Saving & Printing...' : 'Print'}
               </button>
             </div>
           </div>
